@@ -1,0 +1,7 @@
+{
+  "name": "New IMAM V6.1",
+  "description": "School Management System for MAN 1 Hulu Sungai Tengah",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

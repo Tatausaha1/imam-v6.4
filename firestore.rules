@@ -1,0 +1,128 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function getUserRole() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data.role : null;
+    }
+    
+    function isAdmin() {
+      let role = getUserRole();
+      return isSignedIn() && (role == 'admin' || role == 'developer');
+    }
+    
+    function isStaff() {
+      let role = getUserRole();
+      return isSignedIn() && (
+        role == 'admin' || 
+        role == 'developer' || 
+        role == 'Staf' || 
+        role == 'Guru' || 
+        role == 'Wali Kelas' || 
+        role == 'kepala_madrasah'
+      );
+    }
+
+    // --- Collection Rules ---
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow delete: if isAdmin();
+    }
+
+    match /students/{studentId} {
+      allow get: if true;
+      allow list: if isSignedIn();
+      allow write: if isAdmin() || isStaff();
+    }
+
+    match /teachers/{teacherId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /classes/{classId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /attendance/{recordId} {
+      allow read: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.studentId);
+      allow write: if isStaff();
+    }
+
+    match /letters/{letterId} {
+      allow read: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.userId);
+      allow create: if isSignedIn();
+      allow update, delete: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.userId);
+    }
+
+    match /academic_years/{yearId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /schedules/{scheduleId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /journals/{journalId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+
+    match /assignments/{assignmentId} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /grades/{gradeId} {
+      allow read: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.studentId);
+      allow write: if isStaff();
+    }
+
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /about_content/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /discipline_logs/{logId} {
+      allow read: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.studentId);
+      allow write: if isStaff();
+    }
+    
+    match /violations_master/{ruleId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /login_logs/{logId} {
+      allow create: if isSignedIn();
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.userId);
+    }
+
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
