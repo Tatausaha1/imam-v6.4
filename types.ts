@@ -43,6 +43,7 @@ export enum ViewState {
   GUIDE = 'GUIDE',
   POINTS = 'POINTS',
   KEMENAG_HUB = 'KEMENAG_HUB',
+  ENROLLMENT = 'ENROLLMENT',
 }
 
 export enum UserRole {

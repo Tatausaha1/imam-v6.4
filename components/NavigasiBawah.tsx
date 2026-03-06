@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ViewState, UserRole } from '../types';
 import { 
   HomeIcon, UserIcon, CameraIcon, Squares2x2Icon, 
-  ClipboardDocumentListIcon, ChartBarIcon, RobotIcon, HeadsetIcon
+  ClipboardDocumentListIcon, ChartBarIcon, RobotIcon, HeadsetIcon,
+  ShieldCheckIcon, UsersIcon, SparklesIcon
 } from './Ikon';
 
 interface NavigasiBawahProps {
@@ -13,39 +14,104 @@ interface NavigasiBawahProps {
 
 const NavigasiBawah: React.FC<NavigasiBawahProps> = ({ currentView, onNavigate, userRole }) => {
   const isStudent = userRole === UserRole.SISWA;
+  const isAdmin = userRole === UserRole.ADMIN || userRole === UserRole.DEVELOPER;
 
-  const navItems = [
-    { 
-        id: 'home', 
-        view: ViewState.DASHBOARD, 
-        label: 'Beranda', 
-        icon: HomeIcon 
-    },
-    { 
-        id: 'assignments', 
-        view: ViewState.ASSIGNMENTS, 
-        label: 'Tugas', 
-        icon: ClipboardDocumentListIcon 
-    },
-    { 
-        id: 'menu', 
-        view: ViewState.ALL_FEATURES, 
-        label: 'Menu', 
-        icon: Squares2x2Icon 
-    },
-    { 
-        id: 'reports', 
-        view: ViewState.REPORTS, 
-        label: 'Laporan', 
-        icon: ChartBarIcon 
-    },
-    { 
-        id: 'profile', 
-        view: ViewState.PROFILE, 
-        label: 'Akun', 
-        icon: UserIcon 
+  const navItems = useMemo(() => {
+    const items = [
+      { 
+          id: 'home', 
+          view: ViewState.DASHBOARD, 
+          label: 'Beranda', 
+          icon: HomeIcon 
+      },
+    ];
+
+    if (isStudent) {
+      items.push(
+        { 
+            id: 'assignments', 
+            view: ViewState.ASSIGNMENTS, 
+            label: 'Tugas', 
+            icon: ClipboardDocumentListIcon 
+        },
+        { 
+            id: 'menu', 
+            view: ViewState.ALL_FEATURES, 
+            label: 'Menu', 
+            icon: Squares2x2Icon 
+        },
+        { 
+            id: 'points', 
+            view: ViewState.POINTS, 
+            label: 'Poin', 
+            icon: ShieldCheckIcon 
+        },
+        { 
+            id: 'profile', 
+            view: ViewState.PROFILE, 
+            label: 'Akun', 
+            icon: UserIcon 
+        }
+      );
+    } else if (isAdmin) {
+      items.push(
+        { 
+            id: 'scanner', 
+            view: ViewState.SCANNER, 
+            label: 'Scan', 
+            icon: CameraIcon 
+        },
+        { 
+            id: 'menu', 
+            view: ViewState.ALL_FEATURES, 
+            label: 'Menu', 
+            icon: Squares2x2Icon 
+        },
+        { 
+            id: 'users', 
+            view: ViewState.USER_MANAGEMENT, 
+            label: 'User', 
+            icon: UsersIcon 
+        },
+        { 
+            id: 'profile', 
+            view: ViewState.PROFILE, 
+            label: 'Akun', 
+            icon: UserIcon 
+        }
+      );
+    } else {
+      // Guru, Staf, Wali Kelas, Kamad
+      items.push(
+        { 
+            id: 'scanner', 
+            view: ViewState.SCANNER, 
+            label: 'Scan', 
+            icon: CameraIcon 
+        },
+        { 
+            id: 'menu', 
+            view: ViewState.ALL_FEATURES, 
+            label: 'Menu', 
+            icon: Squares2x2Icon 
+        },
+        { 
+            id: 'reports', 
+            view: ViewState.REPORTS, 
+            label: 'Laporan', 
+            icon: ChartBarIcon 
+        },
+        { 
+            id: 'profile', 
+            view: ViewState.PROFILE, 
+            label: 'Akun', 
+            icon: UserIcon 
+        }
+      );
     }
-  ];
+
+    return items;
+  }, [userRole, isStudent, isAdmin]);
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)] md:hidden">
@@ -69,18 +135,18 @@ const NavigasiBawah: React.FC<NavigasiBawahProps> = ({ currentView, onNavigate, 
                     </button>
                 </div>
 
-                {/* 2. FLOATING SCAN BUTTON (Hanya untuk non-Siswa) */}
+                {/* 2. FLOATING AI ASSISTANT BUTTON (Hanya untuk Guru/Admin) */}
                 {!isStudent && (
                     <div className="flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                        <div className="px-2.5 py-0.5 bg-indigo-600 dark:bg-indigo-500 rounded-full shadow-lg shadow-indigo-500/30 border border-white/20 animate-bounce">
-                            <span className="text-[7px] font-black text-white uppercase tracking-[0.2em]">Scan QR</span>
+                        <div className="px-2.5 py-0.5 bg-rose-600 dark:bg-rose-500 rounded-full shadow-lg shadow-rose-500/30 border border-white/20 animate-bounce">
+                            <span className="text-[7px] font-black text-white uppercase tracking-[0.2em]">AI Guru</span>
                         </div>
                         <button 
-                            onClick={() => onNavigate(ViewState.SCANNER)}
-                            className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 via-blue-600 to-indigo-700 text-white shadow-[0_10px_20px_rgba(79,70,229,0.4)] flex items-center justify-center border-2 border-white/20 active:scale-90 transition-all duration-300 hover:-translate-y-1 group overflow-hidden"
+                            onClick={() => onNavigate(ViewState.CONTENT_GENERATION)}
+                            className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-600 via-pink-600 to-rose-700 text-white shadow-[0_10px_20px_rgba(225,29,72,0.4)] flex items-center justify-center border-2 border-white/20 active:scale-90 transition-all duration-300 hover:-translate-y-1 group overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            <CameraIcon className="w-5 h-5 relative z-10 drop-shadow-md" />
+                            <SparklesIcon className="w-5 h-5 relative z-10 drop-shadow-md" />
                         </button>
                     </div>
                 )}

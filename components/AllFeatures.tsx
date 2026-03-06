@@ -11,7 +11,7 @@ import {
   QrCodeIcon, BookOpenIcon, EnvelopeIcon, CalendarDaysIcon, UsersIcon, 
   BriefcaseIcon, CalendarIcon, ArrowTrendingUpIcon, BuildingLibraryIcon,
   InfoIcon, AcademicCapIcon, ClipboardDocumentListIcon,
-  CommandLineIcon, CameraIcon, Squares2x2Icon, 
+  CommandLineIcon, CameraIcon, Squares2x2Icon, UserPlusIcon,
   SparklesIcon, MegaphoneIcon, UserIcon, PusakaIcon, RdmIcon, EmisIcon, Emis40Icon, PintarIcon, AsnDigitalIcon, SimsdmIcon, AbsensiKemenagIcon, HeadsetIcon, IdentificationIcon, ShieldCheckIcon, ClockIcon,
   StarIcon, CogIcon, ChartBarIcon
 } from './Ikon';
@@ -32,7 +32,7 @@ const AllFeatures: React.FC<AllFeaturesProps> = ({ onBack, onNavigate, userRole 
 
     // --- AKADEMIK (8 items) ---
     { label: 'Jadwal', icon: CalendarIcon, view: ViewState.SCHEDULE, section: 'Akademik Madrasah', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/30' },
-    { label: 'Jurnal', icon: BookOpenIcon, view: ViewState.JOURNAL, section: 'Akademik Madrasah', color: 'text-pink-600', bg: 'pink-50 dark:bg-pink-900/30', roles: [UserRole.ADMIN, UserRole.DEVELOPER, UserRole.GURU, UserRole.WALI_KELAS] },
+    { label: 'Jurnal', icon: BookOpenIcon, view: ViewState.JOURNAL, section: 'Akademik Madrasah', color: 'text-pink-600', bg: 'bg-pink-50 dark:bg-pink-900/30', roles: [UserRole.ADMIN, UserRole.DEVELOPER, UserRole.GURU, UserRole.WALI_KELAS] },
     { label: 'Tugas', icon: ClipboardDocumentListIcon, view: ViewState.ASSIGNMENTS, section: 'Akademik Madrasah', color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-900/30' },
     { label: 'Nilai', icon: AcademicCapIcon, view: ViewState.GRADES, section: 'Akademik Madrasah', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30' },
     { label: 'Tahun', icon: CalendarDaysIcon, view: ViewState.ACADEMIC_YEAR, section: 'Akademik Madrasah', color: 'text-cyan-600', bg: 'bg-cyan-50 dark:bg-cyan-900/30', roles: [UserRole.ADMIN, UserRole.DEVELOPER] },
@@ -50,6 +50,7 @@ const AllFeatures: React.FC<AllFeaturesProps> = ({ onBack, onNavigate, userRole 
     { label: 'Guru', icon: BriefcaseIcon, view: ViewState.TEACHERS, section: 'Sistem Presensi & Data', color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/30', roles: [UserRole.ADMIN, UserRole.DEVELOPER, UserRole.GURU, UserRole.STAF] },
     { label: 'Kelas', icon: BookOpenIcon, view: ViewState.CLASSES, section: 'Sistem Presensi & Data', color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/30', roles: [UserRole.ADMIN, UserRole.DEVELOPER, UserRole.GURU, UserRole.STAF] },
     { label: 'ID Card', icon: IdentificationIcon, view: ViewState.ID_CARD, section: 'Sistem Presensi & Data', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/30' },
+    { label: 'PPDB', icon: UserPlusIcon, view: ViewState.ENROLLMENT, section: 'Sistem Presensi & Data', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30', roles: [UserRole.ADMIN, UserRole.DEVELOPER, UserRole.STAF] },
 
     // --- ALAT AI & SISTEM (7 items) ---
     { label: 'Live Chat', icon: HeadsetIcon, view: ViewState.ADVISOR, section: 'Alat & Konfigurasi', color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-900/30' },

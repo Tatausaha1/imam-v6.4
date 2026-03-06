@@ -13,7 +13,7 @@ import {
   CheckCircleIcon, ChartBarIcon, EnvelopeIcon,
   CalendarIcon, RobotIcon, BookOpenIcon, CogIcon,
   IdentificationIcon, StarIcon, BuildingLibraryIcon,
-  LogOutIcon, CameraIcon, SparklesIcon,
+  LogOutIcon, CameraIcon, SparklesIcon, UserPlusIcon,
   ClipboardDocumentListIcon,
   PusakaIcon, RdmIcon, Emis40Icon, EmisIcon,
   SimsdmIcon, AbsensiKemenagIcon, PintarIcon, AsnDigitalIcon,
@@ -168,10 +168,12 @@ const Beranda: React.FC<BerandaProps> = ({ onNavigate, userRole, onLogout }) => 
     { show: true, label: 'Jadwal', icon: CalendarIcon, view: ViewState.SCHEDULE, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/30' },
     { show: true, label: 'Tugas', icon: ClipboardDocumentListIcon, view: ViewState.ASSIGNMENTS, color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-900/30' },
     { show: !isStudent, label: 'Presensi', icon: QrCodeIcon, view: ViewState.PRESENSI, color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-900/30' },
-    { show: !isStudent && (isTeacher || isAdmin || isKamad), label: 'AI Guru', icon: RobotIcon, view: ViewState.CONTENT_GENERATION, color: 'text-rose-600', bg: 'bg-rose-50 dark:bg-rose-900/30' },
+    { show: isStudent, label: 'Kredit Poin', icon: ShieldCheckIcon, view: ViewState.POINTS, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30' },
+    { show: isAdmin || userRole === UserRole.STAF, label: 'PPDB', icon: UserPlusIcon, view: ViewState.ENROLLMENT, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30' },
+    { show: !isStudent && (isTeacher || isAdmin || isKamad), label: 'AI Guru', icon: SparklesIcon, view: ViewState.CONTENT_GENERATION, color: 'text-rose-600', bg: 'bg-rose-50 dark:bg-rose-900/30' },
     { show: isWaliKelas || isAdmin || isKamad, label: 'Daftar Kelas', icon: BookOpenIcon, view: ViewState.CLASSES, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/30' },
-    { show: true, label: 'Nilai', icon: AcademicCapIcon, view: ViewState.REPORT_CARDS, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30' },
-    { show: true, label: 'Surat', icon: EnvelopeIcon, view: ViewState.LETTERS, color: 'text-sky-600', bg: 'bg-sky-50 dark:bg-sky-900/30' },
+    { show: true, label: 'Rapor', icon: AcademicCapIcon, view: ViewState.REPORT_CARDS, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/30' },
+    { show: true, label: 'Surat PTSP', icon: EnvelopeIcon, view: ViewState.LETTERS, color: 'text-sky-600', bg: 'bg-sky-50 dark:bg-sky-900/30' },
     { show: isAdmin || isKamad || isWaliKelas, label: 'Laporan', icon: ChartBarIcon, view: ViewState.REPORTS, color: 'text-slate-600', bg: 'bg-slate-200 dark:bg-slate-800' }
   ];
 

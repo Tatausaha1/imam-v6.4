@@ -46,6 +46,7 @@ const About = lazy(() => import('./About'));
 const History = lazy(() => import('./History'));
 const MadrasahInfo = lazy(() => import('./MadrasahInfo'));
 const KemenagHub = lazy(() => import('./KemenagHub'));
+const PendaftaranSiswa = lazy(() => import('./PendaftaranSiswa'));
 const PointsView = lazy(() => import('./PointsView'));
 const AcademicYear = lazy(() => import('./AcademicYear'));
 const ClassPromotion = lazy(() => import('./ClassPromotion'));
@@ -181,6 +182,7 @@ const App: React.FC = () => {
               case ViewState.ADVISOR: return <Advisor onBack={backToDashboard} />;
               case ViewState.MADRASAH_INFO: return <MadrasahInfo onBack={backToDashboard} />;
               case ViewState.KEMENAG_HUB: return <KemenagHub onBack={backToDashboard} />;
+              case ViewState.ENROLLMENT: return <ProtectedRoute allowedRoles={staffAbove} userRole={userRole} onBack={backToDashboard}><PendaftaranSiswa onBack={backToDashboard} userRole={userRole} /></ProtectedRoute>;
               case ViewState.CLASSES: return <ProtectedRoute allowedRoles={staffAbove} userRole={userRole} onBack={backToDashboard}><ClassList onBack={backToDashboard} userRole={userRole} /></ProtectedRoute>;
               case ViewState.SCANNER: return <ProtectedRoute allowedRoles={staffAbove} userRole={userRole} onBack={backToDashboard}><QRScanner onBack={backToDashboard} /></ProtectedRoute>;
               case ViewState.ATTENDANCE_HISTORY: return <RiwayatPresensi onBack={backToDashboard} onNavigate={handleNavigate} userRole={userRole} />;
