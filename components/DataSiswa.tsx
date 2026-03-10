@@ -99,9 +99,9 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
     const q = searchQuery.toLowerCase().trim();
     if (!q) return students;
     return students.filter(s => {
-        const name = (s.namaLengkap || '').toLowerCase();
-        const id = String(s.idUnik || '').toLowerCase();
-        const nisn = String(s.nisn || '').toLowerCase();
+        const name = String(s.namaLengkap || '').toLowerCase();
+        const id = String(s.idUnik ?? '').toLowerCase();
+        const nisn = String(s.nisn ?? '').toLowerCase();
         return name.includes(q) || id.includes(q) || nisn.includes(q);
     });
   }, [students, searchQuery]);

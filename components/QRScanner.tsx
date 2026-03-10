@@ -165,7 +165,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
       let determinedStatus: NotificationItem['status'] = 'error';
       if (result.success) {
           determinedStatus = haidRef.current ? 'haid' : 'success';
-      } else if (result.message.includes('SUDAH TERREKAM')) {
+      } else if (result.message.includes('SUDAH ABSEN')) {
           determinedStatus = 'warning';
       }
 
@@ -202,9 +202,15 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
 
     if (scannerRef.current) {
         try {
-            if (scannerRef.current.isScanning) await scannerRef.current.stop();
+            // Check if scanning before attempting to stop
+            const state = scannerRef.current.getState();
+            if (state === 2 || state === 3) { // 2 = SCANNING, 3 = PAUSED
+                await scannerRef.current.stop();
+            }
             scannerRef.current.clear();
-        } catch (e) {}
+        } catch (e) {
+            console.warn("Scanner cleanup failed:", e);
+        }
     }
 
     try {
@@ -219,8 +225,9 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
         { 
           fps: 30,
           qrbox: (w, h) => { 
-              const s = Math.min(w, h) * 0.8; 
-              return { width: s, height: s }; 
+              const s = Math.floor(Math.min(w, h) * 0.7); 
+              const size = Math.max(s, 200); // Ensure at least 200px for better UX, and definitely > 50px
+              return { width: size, height: size }; 
           },
           aspectRatio: 1.0,
           disableFlip: false
@@ -245,7 +252,10 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
     startScanner();
     return () => {
       if (scannerRef.current) {
-          scannerRef.current.stop().catch(() => {});
+          const state = scannerRef.current.getState();
+          if (state === 2 || state === 3) {
+              scannerRef.current.stop().catch(err => console.warn("Cleanup stop failed", err));
+          }
       }
     };
   }, [facingMode]);

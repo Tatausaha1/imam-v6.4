@@ -80,10 +80,12 @@ const Presensi: React.FC<{ onBack: () => void, onNavigate: (v: ViewState) => voi
   }, [date]);
 
   const displayData = useMemo(() => {
+    const searchLower = (searchTerm || '').toLowerCase().trim();
     const filteredStudents = allStudents
         .filter(s => {
-            const matchesSearch = (s.namaLengkap || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                 String(s.idUnik || '').toLowerCase().includes(searchTerm.toLowerCase());
+            const name = String(s.namaLengkap || '').toLowerCase();
+            const id = String(s.idUnik ?? '').toLowerCase();
+            const matchesSearch = name.includes(searchLower) || id.includes(searchLower);
             const matchesClass = selectedClass === 'All' || s.tingkatRombel === selectedClass;
             return matchesSearch && matchesClass;
         })
