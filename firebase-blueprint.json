@@ -1,0 +1,94 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "developer", "kepala_madrasah", "Guru", "Wali Kelas", "Staf", "Guru BK", "Ketua Kelas", "siswa", "orangtua"] },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "status", "createdAt"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Student profile data",
+      "type": "object",
+      "properties": {
+        "namaLengkap": { "type": "string" },
+        "nisn": { "type": "string" },
+        "tingkatRombel": { "type": "string" },
+        "status": { "type": "string", "enum": ["Aktif", "Lulus", "Mutasi", "Keluar", "Nonaktif"] },
+        "jenisKelamin": { "type": "string", "enum": ["Laki-laki", "Perempuan"] },
+        "disciplinePoints": { "type": "integer" }
+      },
+      "required": ["namaLengkap", "nisn", "tingkatRombel", "status", "jenisKelamin"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Daily attendance record for a student",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "class": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Hadir", "Sakit", "Izin", "Alpha"] },
+        "checkIn": { "type": "string" },
+        "duha": { "type": "string" },
+        "zuhur": { "type": "string" },
+        "ashar": { "type": "string" },
+        "checkOut": { "type": "string" }
+      },
+      "required": ["studentId", "studentName", "class", "date", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System notifications for users",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who should receive the notification"
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the notification"
+        },
+        "message": {
+          "type": "string",
+          "description": "The body text of the notification"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["assignment", "grade", "announcement", "system", "letter"],
+          "description": "The category of the notification"
+        },
+        "read": {
+          "type": "boolean",
+          "description": "Whether the notification has been read by the user"
+        },
+        "link": {
+          "type": "string",
+          "description": "Optional URL or view state to navigate to when clicked"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the notification was created"
+        }
+      },
+      "required": ["userId", "title", "message", "type", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Global notifications collection"
+    }
+  }
+}

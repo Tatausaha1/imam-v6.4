@@ -50,8 +50,8 @@ const AcademicYear: React.FC<AcademicYearProps> = ({ onBack }) => {
         const years = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AcademicYearData));
         // Sort by name desc, then semester (Genap first for same year usually means later)
         years.sort((a, b) => {
-            if (a.name > b.name) return -1;
-            if (a.name < b.name) return 1;
+            const nameCompare = (b.name || '').localeCompare(a.name || '');
+            if (nameCompare !== 0) return nameCompare;
             return a.semester === 'Genap' ? -1 : 1;
         });
         setAcademicYears(years);

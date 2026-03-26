@@ -33,6 +33,7 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
   const [createAccount, setCreateAccount] = useState(false);
   const [accountEmail, setAccountEmail] = useState('');
   const [accountPassword, setAccountPassword] = useState('');
+  const [accountRole, setAccountRole] = useState<UserRole>(UserRole.SISWA);
 
   const initialFormState: Partial<Student> = {
     namaLengkap: '',
@@ -58,7 +59,7 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
     }
     if (db) {
       db.collection('classes').get().then(snap => {
-        setClassList(snap.docs.map(d => d.data().name).sort());
+        setClassList(snap.docs.map(d => d.data().name).sort((a, b) => String(a || '').localeCompare(String(b || ''))));
       });
     }
   }, []);
@@ -119,6 +120,8 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
     setEditingId(student.id || null); 
     setFormData({ ...student }); 
     setCreateAccount(false);
+    setAccountEmail('');
+    setAccountPassword('');
     setIsModalOpen(true); 
   };
 
@@ -149,7 +152,7 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
           let linkedUid = formData.linkedUserId || '';
           
           // ALUR PENDAFTARAN EMAIL OTOMATIS (SISI ADMIN)
-          if (createAccount && !editingId) {
+          if (createAccount && !formData.linkedUserId) {
               if (isMockMode) {
                   await new Promise(r => setTimeout(r, 1000));
                   linkedUid = "mock-uid-" + Date.now();
@@ -166,8 +169,8 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
                       uid: linkedUid,
                       displayName: formData.namaLengkap,
                       email: accountEmail,
-                      role: UserRole.SISWA,
-                      studentId: formData.idUnik,
+                      role: accountRole,
+                      studentId: editingId || formData.idUnik,
                       idUnik: formData.idUnik,
                       class: formData.tingkatRombel,
                       createdAt: new Date().toISOString(),
@@ -306,7 +309,7 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
                       <form id="studentForm" onSubmit={handleSave} className="space-y-10">
                           
                           {/* BAGIAN AKUN LOGIN (EMAIL) */}
-                          {!editingId && (
+                          {!formData.linkedUserId && (
                               <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-6 rounded-[2rem] border border-indigo-100 dark:border-indigo-800 shadow-inner">
                                   <div className="flex items-center justify-between mb-6">
                                       <div className="flex items-center gap-3">
@@ -349,6 +352,25 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
                                                 placeholder="Min. 6 Karakter"
                                               />
                                           </div>
+                                          <div className="space-y-1.5 md:col-span-2">
+                                              <label className="text-[9px] font-black text-indigo-600 uppercase tracking-widest ml-1">Role Akun</label>
+                                              <div className="grid grid-cols-2 gap-2">
+                                                  <button 
+                                                    type="button" 
+                                                    onClick={() => setAccountRole(UserRole.SISWA)} 
+                                                    className={`py-3 rounded-xl border text-[9px] font-black uppercase transition-all ${accountRole === UserRole.SISWA ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 text-slate-400'}`}
+                                                  >
+                                                      Siswa
+                                                  </button>
+                                                  <button 
+                                                    type="button" 
+                                                    onClick={() => setAccountRole(UserRole.KETUA_KELAS)} 
+                                                    className={`py-3 rounded-xl border text-[9px] font-black uppercase transition-all ${accountRole === UserRole.KETUA_KELAS ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 text-slate-400'}`}
+                                                  >
+                                                      Ketua Kelas
+                                                  </button>
+                                              </div>
+                                          </div>
                                       </div>
                                   )}
                               </div>
@@ -380,6 +402,16 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
                                           </select>
                                           <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                       </div>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Status Keaktifan</label>
+                                      <select value={formData.status || 'Aktif'} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-xs font-bold">
+                                          <option value="Aktif">Aktif</option>
+                                          <option value="Lulus">Lulus</option>
+                                          <option value="Mutasi">Mutasi</option>
+                                          <option value="Keluar">Keluar</option>
+                                          <option value="Nonaktif">Nonaktif</option>
+                                      </select>
                                   </div>
                                   <div className="space-y-1.5">
                                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Jenis Kelamin</label>

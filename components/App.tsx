@@ -53,6 +53,7 @@ const ClassPromotion = lazy(() => import('./ClassPromotion'));
 const News = lazy(() => import('./News'));
 const Premium = lazy(() => import('./Premium'));
 const GenericView = lazy(() => import('./GenericView'));
+const NotificationsView = lazy(() => import('./NotificationsView'));
 
 const PageLoader = () => (
     <div className="h-full w-full flex flex-col items-center justify-center bg-white/50 dark:bg-[#020617]/50 backdrop-blur-sm animate-in fade-in duration-300">
@@ -215,6 +216,7 @@ const App: React.FC = () => {
                 );
               case ViewState.DEVELOPER: return <ProtectedRoute allowedRoles={devOnly} userRole={userRole} onBack={backToDashboard}><DeveloperConsole onBack={backToDashboard} /></ProtectedRoute>;
               case ViewState.SETTINGS: return <Settings onBack={backToDashboard} onNavigate={handleNavigate} onLogout={handleLogout} isDarkMode={isDarkTheme} onToggleTheme={toggleTheme} userRole={userRole} />;
+              case ViewState.NOTIFICATIONS: return <NotificationsView onBack={backToDashboard} onNavigate={handleNavigate} />;
               default: return <GenericView title="Fitur" onBack={backToDashboard} />;
             }
           })()}

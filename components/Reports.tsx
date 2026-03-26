@@ -13,9 +13,10 @@ import {
 } from './Ikon';
 import { db, isMockMode } from '../services/firebase';
 import { format } from 'date-fns';
-import { id as localeID } from 'date-fns/locale/id'; 
+import { id as localeID } from 'date-fns/locale'; 
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { Student, MadrasahData } from '../types';
 
@@ -106,7 +107,6 @@ const Reports: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     const formatTimeCell = (val: string | null) => {
         if (!val) return '-';
-        if (val.includes('(')) return val.split(' ')[0];
         return val.substring(0, 5);
     };
 
@@ -149,11 +149,8 @@ const Reports: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 const tableData = classStudents.map((s, i) => {
                     const r = attendanceRecords.find(rec => rec.studentId === s.id);
                     const currentStatus = r?.status || 'Alpha';
-                    let statusText = currentStatus.toUpperCase();
-                    if (currentStatus === 'Haid') {
-                        const hTime = formatTimeCell(r?.duha || r?.zuhur || r?.ashar || '');
-                        statusText = `HAID (${hTime})`;
-                    }
+                    const statusText = currentStatus.toUpperCase();
+                    
                     return [
                         i + 1, s.idUnik || "-", (s.namaLengkap || '').toUpperCase(), (cls.name || '').replace('IPA ', '').replace('IPS ', ''),
                         formatTimeCell(r?.checkIn || null), formatTimeCell(r?.duha || null), formatTimeCell(r?.zuhur || null), formatTimeCell(r?.ashar || null), formatTimeCell(r?.checkOut || null),
@@ -171,8 +168,7 @@ const Reports: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     didParseCell: (data) => {
                         if (data.section === 'body') {
                             const textStr = data.cell.text.join(' ').toUpperCase();
-                            if (textStr.includes('HAID')) data.cell.styles.textColor = [220, 38, 38];
-                            else if (textStr === 'ALPHA') data.cell.styles.textColor = [185, 28, 28];
+                            if (textStr === 'ALPHA') data.cell.styles.textColor = [185, 28, 28];
                         }
                     }
                 });
@@ -193,6 +189,52 @@ const Reports: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             doc.save(`PRESENSI_${selectedClass}_${selectedDate}.pdf`);
             toast.success("PDF berhasil diunduh.", { id: toastId });
         } catch (e) { console.error(e); toast.error("Gagal membuat PDF."); }
+    };
+
+    const handleExportExcel = () => {
+        if (allStudents.length === 0) {
+            toast.warning("Database siswa kosong.");
+            return;
+        }
+        const toastId = toast.loading("Membangun File Excel...");
+        try {
+            const sortedClasses = [...classes].sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
+            const classesToExport = selectedClass === 'All' ? sortedClasses : classes.filter(c => c.name === selectedClass);
+            
+            const excelData: any[] = [];
+            
+            classesToExport.forEach(cls => {
+                const classStudents = allStudents.filter(s => s.tingkatRombel === cls.name).sort((a, b) => (a.namaLengkap || '').localeCompare(b.namaLengkap || ''));
+                
+                classStudents.forEach((s, i) => {
+                    const r = attendanceRecords.find(rec => rec.studentId === s.id);
+                    excelData.push({
+                        'NO': i + 1,
+                        'ID UNIK': s.idUnik || "-",
+                        'NAMA LENGKAP': (s.namaLengkap || '').toUpperCase(),
+                        'KELAS': cls.name,
+                        'JENIS KELAMIN': s.jenisKelamin,
+                        'TANGGAL': selectedDate,
+                        'MASUK': formatTimeCell(r?.checkIn || null),
+                        'DUHA': formatTimeCell(r?.duha || null),
+                        'ZUHUR': formatTimeCell(r?.zuhur || null),
+                        'ASHAR': formatTimeCell(r?.ashar || null),
+                        'PULANG': formatTimeCell(r?.checkOut || null),
+                        'STATUS': (r?.status || 'Alpha').toUpperCase()
+                    });
+                });
+            });
+
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Presensi");
+            XLSX.writeFile(wb, `LOG_PRESENSI_${selectedClass}_${selectedDate}.xlsx`);
+            
+            toast.success("Excel berhasil diunduh.", { id: toastId });
+        } catch (e) {
+            console.error(e);
+            toast.error("Gagal membuat Excel.");
+        }
     };
 
     return (
@@ -219,7 +261,7 @@ const Reports: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         <div className="bg-white dark:bg-[#151E32] p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-4 items-end">
                             <div className="flex-1 space-y-1.5 w-full"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Tanggal</label><input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-4 text-xs font-bold outline-none text-slate-800 dark:text-white" /></div>
                             <div className="flex-1 space-y-1.5 w-full"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Pilih Rombel</label><select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl py-3.5 px-4 text-xs font-bold outline-none text-slate-800 dark:text-white"><option value="All">Semua Rombel</option>{classes.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}</select></div>
-                            <button onClick={handleExportPDF} className="flex-1 md:flex-none py-3.5 px-8 bg-indigo-600 text-white rounded-2xl shadow-lg active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"><PrinterIcon className="w-4 h-4"/> Cetak PDF Legal</button>
+                            <button onClick={activeReport === 'official_print' ? handleExportPDF : handleExportExcel} className="flex-1 md:flex-none py-3.5 px-8 bg-indigo-600 text-white rounded-2xl shadow-lg active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"><PrinterIcon className="w-4 h-4"/> {activeReport === 'official_print' ? 'Cetak PDF Legal' : 'Unduh Excel'}</button>
                         </div>
                         <div className="bg-white dark:bg-[#151E32] rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm"><div className="overflow-x-auto p-12 text-center text-slate-400 font-bold uppercase text-[10px] tracking-widest">{loading ? <Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-500 mb-4" /> : "Gunakan tombol di atas untuk mengunduh rekapitulasi."}</div></div>
                     </div>

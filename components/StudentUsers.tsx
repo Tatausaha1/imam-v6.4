@@ -36,12 +36,13 @@ const StudentUsers: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const filteredUsers = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return users;
-    return users.filter(u => 
+    const filtered = q ? users.filter(u => 
         (u.namaLengkap || '').toLowerCase().includes(q) || 
         (u.email || '').toLowerCase().includes(q) ||
         (String(u.idUnik || '')).includes(q)
-    );
+    ) : users;
+    
+    return [...filtered].sort((a, b) => (a.namaLengkap || '').localeCompare(b.namaLengkap || ''));
   }, [users, searchQuery]);
 
   return (

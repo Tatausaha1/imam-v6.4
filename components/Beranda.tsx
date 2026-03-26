@@ -5,8 +5,9 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ViewState, UserRole, Student, ClassData } from '../types';
+import { ViewState, UserRole, Student, ClassData, Notification } from '../types';
 import { db, auth, isMockMode } from '../services/firebase';
+import { getNotifications } from '../services/notificationService';
 import { 
   UsersGroupIcon, BriefcaseIcon, UserIcon,
   QrCodeIcon, ArrowRightIcon, AcademicCapIcon, ClockIcon,
@@ -17,7 +18,7 @@ import {
   ClipboardDocumentListIcon,
   PusakaIcon, RdmIcon, Emis40Icon, EmisIcon,
   SimsdmIcon, AbsensiKemenagIcon, PintarIcon, AsnDigitalIcon,
-  ShieldCheckIcon, HeartIcon
+  ShieldCheckIcon, HeartIcon, BellIcon
 } from './Ikon';
 import { format } from 'date-fns';
 
@@ -46,6 +47,7 @@ const Beranda: React.FC<BerandaProps> = ({ onNavigate, userRole, onLogout }) => 
   const [maleStudents, setMaleStudents] = useState<number>(0);
   const [femaleStudents, setFemaleStudents] = useState<number>(0);
   const [classAttendancePct, setClassAttendancePct] = useState<number>(0);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   
   const [trendData, setTrendData] = useState<{day: string, val: number, fullDate: string}[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -59,8 +61,9 @@ const Beranda: React.FC<BerandaProps> = ({ onNavigate, userRole, onLogout }) => 
   const [scrollLeft, setScrollLeft] = useState(0);
 
   const isStudent = userRole === UserRole.SISWA;
+  const isParent = userRole === UserRole.ORANG_TUA;
   const isWaliKelas = userRole === UserRole.WALI_KELAS;
-  const isTeacher = userRole === UserRole.GURU || isWaliKelas;
+  const isTeacher = userRole === UserRole.GURU || isWaliKelas || userRole === UserRole.GURU_BK;
   const isAdmin = userRole === UserRole.ADMIN || userRole === UserRole.DEVELOPER;
   const isKamad = userRole === UserRole.KEPALA_MADRASAH;
 
@@ -133,6 +136,14 @@ const Beranda: React.FC<BerandaProps> = ({ onNavigate, userRole, onLogout }) => 
     };
     fetchAllData();
   }, [userIdUnik, userRole, isWaliKelas]);
+
+  useEffect(() => {
+    const unsubscribe = getNotifications((data) => {
+      const unread = data.filter(n => !n.read).length;
+      setUnreadNotifCount(unread);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
       if (auth.currentUser) {
@@ -226,7 +237,7 @@ const Beranda: React.FC<BerandaProps> = ({ onNavigate, userRole, onLogout }) => 
             <div className="flex items-center gap-2 mb-1.5 animate-in fade-in slide-in-from-left-4 duration-1000">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                    {isStudent ? 'Portal Siswa Digital' : isKamad ? 'Dashboard Pimpinan' : isWaliKelas ? 'Dashboard Wali Kelas' : 'Manajemen Madrasah'}
+                    {isStudent ? 'Portal Siswa Digital' : isParent ? 'Portal Orang Tua' : isKamad ? 'Dashboard Pimpinan' : isWaliKelas ? 'Dashboard Wali Kelas' : 'Manajemen Madrasah'}
                 </p>
             </div>
             <h1 className="text-2xl font-black text-slate-900 dark:text-white leading-tight truncate animate-in fade-in slide-in-from-left-6 duration-1000 delay-100">
@@ -244,6 +255,14 @@ const Beranda: React.FC<BerandaProps> = ({ onNavigate, userRole, onLogout }) => 
             </div>
           </div>
           <div className="flex gap-2.5 shrink-0 animate-in fade-in slide-in-from-right-4 duration-700">
+             <button onClick={() => onNavigate(ViewState.NOTIFICATIONS)} className="relative p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-all border border-slate-100 dark:border-slate-800">
+                <BellIcon className="w-5 h-5" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute top-2 right-2 w-4 h-4 bg-rose-500 text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-[#0B1121] animate-bounce">
+                    {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                  </span>
+                )}
+             </button>
              <button onClick={() => onNavigate(ViewState.SETTINGS)} className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-all border border-slate-100 dark:border-slate-800 hover:rotate-90">
                 <CogIcon className="w-5 h-5" />
              </button>
@@ -279,6 +298,31 @@ const Beranda: React.FC<BerandaProps> = ({ onNavigate, userRole, onLogout }) => 
                                 <span className="text-[10px] font-bold">Presensi: {classAttendancePct}%</span>
                             </div>
                             <span className="text-[9px] font-black uppercase tracking-widest bg-white/20 px-4 py-1.5 rounded-xl">Kelola Siswa</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isParent && (
+                <div 
+                    onClick={() => onNavigate(ViewState.ATTENDANCE_HISTORY)} 
+                    className="min-w-[280px] snap-center bg-gradient-to-br from-rose-600 to-rose-800 rounded-[2.5rem] p-6 text-white shadow-xl shadow-rose-500/20 cursor-pointer group overflow-hidden relative animate-in fade-in slide-in-from-right-10 duration-700 hover:scale-[1.02] transition-all"
+                >
+                    <div className="absolute top-0 right-0 p-6 opacity-10 rotate-12 group-hover:rotate-0 transition-transform duration-700"><HeartIcon className="w-24 h-24" /></div>
+                    <div className="relative z-10">
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-70 mb-1">Kehadiran Anak Hari Ini</p>
+                        <h3 className="text-xl font-black group-hover:translate-x-1 transition-transform">
+                            {todayAttendance ? (todayAttendance.status === 'Hadir' ? 'Hadir' : todayAttendance.status) : 'Belum Ada Data'}
+                        </h3>
+                        
+                        <MiniSessionTracker data={todayAttendance} />
+
+                        <div className="flex items-center justify-between mt-4">
+                            <div className="flex items-center gap-2">
+                                <ShieldCheckIcon className="w-3.5 h-3.5 opacity-60" />
+                                <span className="text-[10px] font-bold">Monitoring Aman</span>
+                            </div>
+                            <span className="text-[9px] font-black uppercase tracking-widest bg-white/20 px-4 py-1.5 rounded-xl">Cek Detail</span>
                         </div>
                     </div>
                 </div>
@@ -375,6 +419,42 @@ const Beranda: React.FC<BerandaProps> = ({ onNavigate, userRole, onLogout }) => 
 
       <div className="flex-1 overflow-y-auto p-6 space-y-10 scrollbar-hide pb-40">
         
+        {isParent && (
+            <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300 space-y-6">
+                <div className="bg-white dark:bg-[#151E32] p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
+                    <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest">Informasi Akademik Anak</h4>
+                        <SparklesIcon className="w-5 h-5 text-amber-500" />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Rata-rata Nilai</p>
+                            <p className="text-lg font-black text-indigo-600">88.5</p>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Kredit Poin</p>
+                            <p className="text-lg font-black text-emerald-600">0</p>
+                        </div>
+                    </div>
+
+                    <button onClick={() => onNavigate(ViewState.REPORT_CARDS)} className="w-full py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">
+                        Lihat Rapor Digital
+                    </button>
+                </div>
+
+                <div className="bg-amber-50 dark:bg-amber-900/10 p-6 rounded-[2.5rem] border border-amber-100 dark:border-amber-800/50 flex gap-4 items-center">
+                    <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-amber-600 shadow-sm">
+                        <EnvelopeIcon className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">Pengumuman Madrasah</h4>
+                        <p className="text-[9px] text-amber-600/80 dark:text-amber-500/60 font-medium mt-0.5">Rapat Komite akan dilaksanakan pada Sabtu depan.</p>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {isStudent && (
             <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300">
                 <div onClick={() => onNavigate(ViewState.ID_CARD)} className="bg-white dark:bg-[#151E32] p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center gap-5 group cursor-pointer active:scale-95 transition-all hover:shadow-2xl hover:shadow-indigo-500/10">

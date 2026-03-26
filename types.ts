@@ -44,6 +44,7 @@ export enum ViewState {
   POINTS = 'POINTS',
   KEMENAG_HUB = 'KEMENAG_HUB',
   ENROLLMENT = 'ENROLLMENT',
+  NOTIFICATIONS = 'NOTIFICATIONS',
 }
 
 export enum UserRole {
@@ -53,6 +54,7 @@ export enum UserRole {
   GURU = 'Guru',
   WALI_KELAS = 'Wali Kelas',
   STAF = 'Staf',
+  GURU_BK = 'Guru BK',
   KETUA_KELAS = 'Ketua Kelas',
   SISWA = 'siswa',
   ORANG_TUA = 'orangtua',
@@ -130,7 +132,7 @@ export interface Student {
   lastModified?: string;
 }
 
-export type AttendanceStatus = 'Hadir' | 'Sakit' | 'Izin' | 'Alpha' | 'Haid';
+export type AttendanceStatus = 'Hadir' | 'Sakit' | 'Izin' | 'Alpha';
 
 export interface AttendanceRecord {
     id: string;
@@ -253,4 +255,15 @@ export interface DisciplineLog {
   recordedBy: string;
   status: 'Approved' | 'Pending' | 'Rejected';
   note?: string;
+}
+
+export interface Notification {
+  id?: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'assignment' | 'grade' | 'announcement' | 'system' | 'letter';
+  read: boolean;
+  link?: string;
+  createdAt: string;
 }

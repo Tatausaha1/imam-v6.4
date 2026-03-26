@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { getTeachers, addTeacher, updateTeacher, deleteTeacher, bulkImportTeachers } from '../services/teacherService';
 import { Teacher, UserRole } from '../types';
-import { db, isMockMode } from '../services/firebase';
+import { db, auth, isMockMode } from '../services/firebase';
 import { toast } from 'sonner';
 import Layout from './Layout';
 import * as XLSX from 'xlsx';
@@ -32,6 +32,14 @@ const DataGuru: React.FC<DataGuruProps> = ({ onBack, userRole }) => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // State untuk Pendaftaran Email Langsung
+  const [createAccount, setCreateAccount] = useState(false);
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
+  const [accountRole, setAccountRole] = useState<UserRole>(UserRole.GURU);
+
   const [formData, setFormData] = useState<Partial<Teacher>>({
       name: '', nip: '', subject: '', status: 'PNS', phone: '', email: '', birthDate: '', address: ''
   });
@@ -84,7 +92,7 @@ const DataGuru: React.FC<DataGuruProps> = ({ onBack, userRole }) => {
 
   const uniqueSubjects = useMemo(() => {
       const subjects = teachers.map(t => t.subject).filter(Boolean);
-      return Array.from(new Set(subjects)).sort();
+      return (Array.from(new Set(subjects)) as string[]).sort((a, b) => (a || '').localeCompare(b || ''));
   }, [teachers]);
 
   const processedTeachers = useMemo(() => {
@@ -157,6 +165,9 @@ const DataGuru: React.FC<DataGuruProps> = ({ onBack, userRole }) => {
   const handleEdit = (teacher: Teacher) => {
       setEditingId(teacher.id || null);
       setFormData({ ...teacher });
+      setCreateAccount(false);
+      setAccountEmail('');
+      setAccountPassword('');
       setIsModalOpen(true);
   };
 
@@ -182,22 +193,67 @@ const DataGuru: React.FC<DataGuruProps> = ({ onBack, userRole }) => {
           return;
       }
 
-      const toastId = toast.loading("Menyimpan data...");
+      if (createAccount && (!accountEmail || accountPassword.length < 6)) {
+          toast.error("Lengkapi Email dan Password (min 6 char) untuk aktivasi akun.");
+          return;
+      }
+
+      setSaving(true);
+      const toastId = toast.loading(createAccount ? "Mendaftarkan guru dan email..." : "Menyimpan data...");
       try {
+          let linkedUid = formData.linkedUserId || '';
+
+          // ALUR PENDAFTARAN EMAIL OTOMATIS (SISI ADMIN)
+          if (createAccount && !formData.linkedUserId) {
+              if (isMockMode) {
+                  await new Promise(r => setTimeout(r, 1000));
+                  linkedUid = "mock-uid-teacher-" + Date.now();
+              } else if (auth) {
+                  // 1. Buat User di Firebase Auth
+                  const userCred = await auth.createUserWithEmailAndPassword(accountEmail, accountPassword);
+                  linkedUid = userCred.user?.uid || '';
+                  
+                  // 2. Set Profile Display Name
+                  await userCred.user?.updateProfile({ displayName: formData.name });
+
+                  // 3. Buat Dokumen User Utama
+                  const userDoc = {
+                      uid: linkedUid,
+                      displayName: formData.name,
+                      email: accountEmail,
+                      role: accountRole,
+                      teacherId: editingId || formData.nip || linkedUid,
+                      nip: formData.nip,
+                      createdAt: new Date().toISOString(),
+                      status: 'Active'
+                  };
+                  await db!.collection('users').doc(linkedUid).set(userDoc);
+              }
+          }
+
+          const teacherDataToSave = { 
+              ...formData, 
+              email: accountEmail || formData.email,
+              linkedUserId: linkedUid
+          };
+
           if (editingId) {
-              await updateTeacher(editingId, formData);
+              await updateTeacher(editingId, teacherDataToSave);
               toast.success("Data diperbarui", { id: toastId });
           } else {
-              const newTeacher = { ...formData, nip: formData.nip || '-' } as Teacher;
+              const newTeacher = { ...teacherDataToSave, nip: formData.nip || '-' } as Teacher;
               await addTeacher(newTeacher);
               toast.success("Guru ditambahkan", { id: toastId });
           }
           setIsModalOpen(false);
           setEditingId(null);
           setFormData({ name: '', nip: '', subject: '', status: 'PNS' });
-      } catch (e) {
+          setCreateAccount(false);
+      } catch (e: any) {
           console.error(e);
-          toast.error("Gagal menyimpan", { id: toastId });
+          toast.error("Gagal menyimpan: " + (e.message || "Kesalahan"), { id: toastId });
+      } finally {
+          setSaving(false);
       }
   };
 
@@ -308,7 +364,14 @@ const DataGuru: React.FC<DataGuruProps> = ({ onBack, userRole }) => {
                       <span className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400">Manajemen GTK</span>
                   </div>
                   <button 
-                      onClick={() => { setEditingId(null); setFormData({ name: '', nip: '', subject: '', status: 'PNS' }); setIsModalOpen(true); }}
+                      onClick={() => { 
+                          setEditingId(null); 
+                          setFormData({ name: '', nip: '', subject: '', status: 'PNS' }); 
+                          setCreateAccount(false);
+                          setAccountEmail('');
+                          setAccountPassword('');
+                          setIsModalOpen(true); 
+                      }}
                       disabled={loading}
                       className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all ${loading ? 'bg-slate-100 text-slate-400' : 'bg-indigo-600 text-white shadow-indigo-500/20 active:scale-95'}`}
                   >
@@ -334,6 +397,15 @@ const DataGuru: React.FC<DataGuruProps> = ({ onBack, userRole }) => {
                                   <div className="min-w-0">
                                       <h4 className="font-black text-slate-800 dark:text-white text-[11px] uppercase truncate tracking-tight">{(t.name || '').toUpperCase()}</h4>
                                       <p className="text-[9px] font-mono font-bold text-slate-400 mt-1">{t.nip || '-'}</p>
+                                      {t.linkedUserId ? (
+                                          <div className="flex items-center gap-1 text-[7px] font-black uppercase text-indigo-500 mt-1">
+                                              <CheckCircleIcon className="w-2.5 h-2.5" /> Akun Aktif
+                                          </div>
+                                      ) : (
+                                          <div className="text-[7px] font-black uppercase text-slate-300 mt-1">
+                                              Belum Aktivasi
+                                          </div>
+                                      )}
                                   </div>
                               </div>
                               <span className={`px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-tighter ${t.status === 'PNS' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{t.status}</span>
@@ -384,6 +456,73 @@ const DataGuru: React.FC<DataGuruProps> = ({ onBack, userRole }) => {
                       </div>
                       <div className="p-6 overflow-y-auto scrollbar-hide flex-1 relative z-10">
                           <form id="teacherForm" onSubmit={handleSave} className="space-y-6">
+                              
+                              {/* BAGIAN AKUN LOGIN (EMAIL) */}
+                              {!formData.linkedUserId && (
+                                  <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-5 rounded-[2rem] border border-indigo-100 dark:border-indigo-800 shadow-inner mb-6">
+                                      <div className="flex items-center justify-between mb-4">
+                                          <div className="flex items-center gap-3">
+                                              <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg">
+                                                  <EnvelopeIcon className="w-4 h-4" />
+                                              </div>
+                                              <div>
+                                                  <h4 className="text-[10px] font-black text-slate-800 dark:text-indigo-400 uppercase tracking-widest">Aktivasi Akun Guru</h4>
+                                                  <p className="text-[7px] font-bold text-slate-400 uppercase mt-0.5">Berikan akses login sekarang</p>
+                                              </div>
+                                          </div>
+                                          <button 
+                                            type="button"
+                                            onClick={() => setCreateAccount(!createAccount)}
+                                            className={`w-10 h-5 rounded-full p-1 transition-all ${createAccount ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                          >
+                                              <div className={`w-3 h-3 rounded-full bg-white transition-transform ${createAccount ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                                          </button>
+                                      </div>
+
+                                      {createAccount && (
+                                          <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                  <div className="space-y-1">
+                                                      <label className="text-[8px] font-black text-indigo-600 uppercase tracking-widest ml-1">Email Resmi</label>
+                                                      <input 
+                                                        type="email" 
+                                                        value={accountEmail}
+                                                        onChange={e => setAccountEmail(e.target.value.toLowerCase())}
+                                                        className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl px-4 py-2.5 text-[10px] font-bold outline-none"
+                                                        placeholder="guru@madrasah.id"
+                                                      />
+                                                  </div>
+                                                  <div className="space-y-1">
+                                                      <label className="text-[8px] font-black text-indigo-600 uppercase tracking-widest ml-1">Password</label>
+                                                      <input 
+                                                        type="password" 
+                                                        value={accountPassword}
+                                                        onChange={e => setAccountPassword(e.target.value)}
+                                                        className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl px-4 py-2.5 text-[10px] font-bold outline-none"
+                                                        placeholder="Min. 6 Karakter"
+                                                      />
+                                                  </div>
+                                              </div>
+                                              <div className="space-y-1">
+                                                  <label className="text-[8px] font-black text-indigo-600 uppercase tracking-widest ml-1">Role Utama</label>
+                                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                      {[UserRole.GURU, UserRole.WALI_KELAS, UserRole.GURU_BK, UserRole.STAF].map(role => (
+                                                          <button 
+                                                            key={role}
+                                                            type="button" 
+                                                            onClick={() => setAccountRole(role)} 
+                                                            className={`py-2 rounded-lg border text-[8px] font-black uppercase transition-all ${accountRole === role ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-200 text-slate-400'}`}
+                                                          >
+                                                              {role}
+                                                          </button>
+                                                      ))}
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      )}
+                                  </div>
+                              )}
+
                               <InputField label="Nama Lengkap & Gelar *" icon={UserIcon} value={formData.name} onChange={(v: string) => setFormData({...formData, name: (v || '').toUpperCase()})} placeholder="BUDI SANTOSO, S.PD" />
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                   <InputField label="NIP / NIY" icon={IdentificationIcon} value={formData.nip} onChange={(v: string) => setFormData({...formData, nip: v})} placeholder="1980..." />

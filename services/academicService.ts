@@ -1,6 +1,8 @@
 
 import { db, isMockMode, auth } from './firebase';
 import { JournalEntry, Assignment } from '../types';
+import { getStudentsByClass } from './studentService';
+import { createNotification } from './notificationService';
 
 const JOURNAL_COLLECTION = 'journals';
 const ASSIGNMENT_COLLECTION = 'assignments';
@@ -70,7 +72,7 @@ export const getJournals = async (teacherId?: string): Promise<JournalEntry[]> =
     try {
         if (!db) throw new Error("Database not initialized");
         
-        let query: any = db.collection(JOURNAL_COLLECTION).orderBy('date', 'desc');
+        let query: any = db.collection(JOURNAL_COLLECTION);
         
         // If a specific teacher ID is provided, filter by it. 
         // Otherwise (e.g. Admin), fetch all.
@@ -81,7 +83,9 @@ export const getJournals = async (teacherId?: string): Promise<JournalEntry[]> =
         const snapshot = await query.get();
         if (snapshot.empty) return [];
         
-        return snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as JournalEntry));
+        return snapshot.docs
+            .map((doc: any) => ({ id: doc.id, ...doc.data() } as JournalEntry))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     } catch (error: any) {
         if (error.code === 'permission-denied') {
             console.warn("Firestore permission denied for journals. Returning empty list.");
@@ -124,7 +128,7 @@ export const getAssignments = async (className?: string): Promise<Assignment[]> 
     try {
         if (!db) throw new Error("Database not initialized");
         
-        let query: any = db.collection(ASSIGNMENT_COLLECTION).orderBy('dueDate', 'asc');
+        let query: any = db.collection(ASSIGNMENT_COLLECTION);
         
         if (className) {
             query = query.where('className', '==', className);
@@ -133,7 +137,9 @@ export const getAssignments = async (className?: string): Promise<Assignment[]> 
         const snapshot = await query.get();
         if (snapshot.empty) return [];
 
-        return snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Assignment));
+        return snapshot.docs
+            .map((doc: any) => ({ id: doc.id, ...doc.data() } as Assignment))
+            .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
     } catch (error: any) {
         if (error.code === 'permission-denied') {
             console.warn("Firestore permission denied for assignments. Returning empty list.");
@@ -159,7 +165,21 @@ export const addAssignment = async (assignment: Omit<Assignment, 'id' | 'created
 
     try {
         if (!db) throw new Error("Database not initialized");
-        await db.collection(ASSIGNMENT_COLLECTION).add(newAssignment);
+        const docRef = await db.collection(ASSIGNMENT_COLLECTION).add(newAssignment);
+        
+        // Trigger Notifications for Students in Class
+        if (assignment.className) {
+            const students = await getStudentsByClass(assignment.className);
+            const notificationPromises = students
+                .filter(s => s.linkedUserId)
+                .map(s => createNotification(s.linkedUserId!, {
+                    title: 'Tugas Baru!',
+                    message: `${assignment.teacherName} memberikan tugas baru: ${assignment.title} (${assignment.subject})`,
+                    type: 'assignment',
+                    link: 'ASSIGNMENTS'
+                }));
+            await Promise.all(notificationPromises);
+        }
     } catch (error) {
         console.error("Error adding assignment:", error);
         throw error;

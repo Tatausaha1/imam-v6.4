@@ -75,10 +75,18 @@ export const getLoginHistory = async (userId: string): Promise<LoginHistoryEntry
         
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LoginHistoryEntry));
     } catch (error: any) {
-        console.error("Error fetching login history:", error);
+        const isIndexError = error.message && error.message.includes('requires an index');
+        const isPermissionError = error.code === 'permission-denied' || (error.message && error.message.includes('permissions'));
+
+        if (isIndexError) {
+            console.error("CRITICAL: Firestore Index Missing for login_logs. Please create it using the link in Developer Console or the error message below:");
+            console.error(error.message);
+        } else {
+            console.error("Error fetching login history:", error);
+        }
         
-        // Return local fallback on permission error
-        if (error.code === 'permission-denied' || (error.message && error.message.includes('Missing or insufficient permissions'))) {
+        // Return local fallback on permission or index error
+        if (isPermissionError || isIndexError) {
             const stored = localStorage.getItem('local_login_history_fallback');
             if (stored) {
                 return JSON.parse(stored);

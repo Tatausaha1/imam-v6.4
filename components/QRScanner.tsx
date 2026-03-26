@@ -38,7 +38,6 @@ interface SessionConfig {
 const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
   const [session, setSession] = useState<AttendanceSession>('Masuk');
   const [sessionConfigs, setSessionConfigs] = useState<SessionConfig[]>([]);
-  const [isHaidMode, setIsHaidMode] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [cameraActive, setCameraActive] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -52,10 +51,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
   const isLocked = useRef(false);
 
   const sessionRef = useRef(session);
-  const haidRef = useRef(isHaidMode);
   
   useEffect(() => { sessionRef.current = session; }, [session]);
-  useEffect(() => { haidRef.current = isHaidMode; }, [isHaidMode]);
 
   // LOGIKA 5 SESI DINAMIS DARI DATABASE
   const determineAutoSession = useCallback((configs: SessionConfig[]) => {
@@ -160,11 +157,11 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
     lastScannedRef.current = { id: decodedText, time: now };
 
     try {
-      const result = await recordAttendanceByScan(decodedText, sessionRef.current, haidRef.current);
+      const result = await recordAttendanceByScan(decodedText, sessionRef.current);
       
       let determinedStatus: NotificationItem['status'] = 'error';
       if (result.success) {
-          determinedStatus = haidRef.current ? 'haid' : 'success';
+          determinedStatus = 'success';
       } else if (result.message.includes('SUDAH ABSEN')) {
           determinedStatus = 'warning';
       }
@@ -178,7 +175,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
         message: result.message
       };
 
-      const feedbackSound = (determinedStatus === 'success' || determinedStatus === 'warning' || determinedStatus === 'haid') ? 'success' : 'error';
+      const feedbackSound = (determinedStatus === 'success' || determinedStatus === 'warning') ? 'success' : 'error';
       playFeedback(feedbackSound);
       
       setNotifications(prev => [newItem, ...prev].slice(0, 4));
@@ -287,11 +284,9 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
                   >
                       <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg text-white transform transition-transform animate-bounce ${
                           item.status === 'error' ? 'bg-rose-600 shadow-rose-500/30' : 
-                          item.status === 'haid' ? 'bg-rose-500 shadow-rose-400/30' :
                           item.status === 'warning' ? 'bg-amber-500 shadow-amber-500/30' : 'bg-emerald-500 shadow-emerald-500/30'
                       }`}>
                           {item.status === 'error' ? <XCircleIcon className="w-9 h-9" /> : 
-                           item.status === 'haid' ? <HeartIcon className="w-9 h-9 fill-current" /> :
                            item.status === 'warning' ? <ClockIcon className="w-9 h-9" /> : <CheckCircleIcon className="w-9 h-9" />}
                       </div>
 
@@ -299,14 +294,13 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
                           <div className="flex justify-between items-start mb-1">
                              <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
                                  item.status === 'error' ? 'bg-rose-50 text-rose-600' : 
-                                 item.status === 'warning' ? 'bg-amber-50 text-amber-600' :
-                                 item.status === 'haid' ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-600'
+                                 item.status === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
                              }`}>
                                 {item.message}
                              </span>
                           </div>
                           
-                          <h4 className={`text-base font-black uppercase truncate leading-none mb-2 ${item.status === 'error' ? 'text-rose-600' : item.status === 'haid' ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
+                          <h4 className={`text-base font-black uppercase truncate leading-none mb-2 ${item.status === 'error' ? 'text-rose-600' : 'text-slate-900 dark:text-white'}`}>
                               {item.name}
                           </h4>
 
@@ -344,15 +338,6 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
                   </div>
                   
                   <div className="flex gap-3">
-                    <button 
-                        onClick={() => setIsHaidMode(!isHaidMode)}
-                        className={`flex-[4] py-4 rounded-[1.5rem] flex items-center justify-center gap-3 border transition-all font-black text-[10px] uppercase tracking-widest ${
-                            isHaidMode ? 'bg-rose-600 border-rose-400 text-white animate-pulse shadow-lg shadow-rose-600/20' : 'bg-black/40 border-white/10 text-white/40'
-                        }`}
-                    >
-                        <HeartIcon className={`w-4 h-4 ${isHaidMode ? 'fill-current' : ''}`} />
-                        Mode Haid {isHaidMode ? 'AKTIF' : ''}
-                    </button>
                     <button onClick={toggleCamera} className="flex-1 py-4 rounded-[1.5rem] bg-white/10 backdrop-blur-xl text-white border border-white/10 flex items-center justify-center active:scale-95 transition-all">
                         <ArrowPathIcon className={`w-5 h-5 ${isInitializing ? 'animate-spin' : ''}`} />
                     </button>

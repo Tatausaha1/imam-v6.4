@@ -13,15 +13,7 @@ import 'firebase/compat/storage';
 import 'firebase/compat/analytics';
 
 // Konfigurasi Firebase dari Project User
-const firebaseConfig = {
-  apiKey: "AIzaSyDhdGopfGfpOjKrqH8thlmx7LQXIyfiayc",
-  authDomain: "studio-4774553931-88e8d.firebaseapp.com",
-  databaseURL: "https://studio-4774553931-88e8d-default-rtdb.firebaseio.com",
-  projectId: "studio-4774553931-88e8d",
-  storageBucket: "studio-4774553931-88e8d.firebasestorage.app",
-  messagingSenderId: "111216910036",
-  appId: "1:111216910036:web:25738f80344f0d5be2a541"
-};
+import firebaseConfig from '../firebase-applet-config.json';
 
 export const isMockMode = false;
 

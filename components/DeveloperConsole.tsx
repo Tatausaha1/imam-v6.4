@@ -5,11 +5,13 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { db, isMockMode } from '../services/firebase';
+import { db, auth, isMockMode } from '../services/firebase';
+import { syncAllStudentsWithProfiles } from '../services/studentService';
 import Layout from './Layout';
 import { 
   CommandLineIcon, ArrowPathIcon, CheckCircleIcon, 
-  Loader2, SparklesIcon, RectangleStackIcon, UsersIcon
+  Loader2, SparklesIcon, RectangleStackIcon, UsersIcon,
+  ExclamationTriangleIcon, ShieldCheckIcon
 } from './Ikon';
 import { toast } from 'sonner';
 
@@ -54,29 +56,15 @@ const DeveloperConsole: React.FC<DeveloperConsoleProps> = ({ onBack }) => {
 
   const handleSyncStudentUsers = async () => {
       if (!db) return;
-      if (!window.confirm("Sinkronisasi masal dari 'students' ke 'pengguna_siswa'? Ini akan melengkapi akun yang profilnya belum masuk tabel khusus.")) return;
+      if (!window.confirm("Sinkronisasi masal dari 'students' ke 'pengguna_siswa'? Ini akan melengkapi akun yang profilnya belum masuk tabel khusus dan menyelaraskan data di tabel 'users'.")) return;
       
       setLoadingAction(true);
       addLog("Memulai Sinkronisasi Tabel Pengguna Siswa...");
 
       try {
-          const studentsSnap = await db.collection('students').where('accountStatus', '==', 'Active').get();
-          addLog(`Ditemukan ${studentsSnap.size} siswa dengan akun aktif.`);
+          const result = await syncAllStudentsWithProfiles((msg) => addLog(msg));
           
-          let updated = 0;
-          for (const doc of studentsSnap.docs) {
-              const data = doc.data();
-              if (data.linkedUserId) {
-                  await db.collection('pengguna_siswa').doc(data.linkedUserId).set({
-                      ...data,
-                      uid: data.linkedUserId,
-                      lastSynced: new Date().toISOString()
-                  }, { merge: true });
-                  updated++;
-              }
-          }
-          
-          addLog(`Sinkronisasi Selesai: ${updated} record diperbarui.`);
+          addLog(`Sinkronisasi Selesai: ${result.updated} dari ${result.total} record diperbarui.`);
           toast.success("Sinkronisasi Selesai!");
           checkAllCollections();
       } catch (e: any) {
@@ -119,6 +107,35 @@ const DeveloperConsole: React.FC<DeveloperConsoleProps> = ({ onBack }) => {
     }
   };
 
+  const handleResetAdmin = async () => {
+      if (!auth || !db) return;
+      if (!window.confirm("Coba inisialisasi ulang akun admin@admin.id? Ini hanya akan berhasil jika akun belum ada atau Anda ingin mendaftarkannya kembali.")) return;
+      
+      setLoadingAction(true);
+      addLog("Mencoba inisialisasi akun admin@admin.id...");
+      try {
+          // Cek apakah dokumen di Firestore sudah ada
+          const adminQuery = await db.collection('users').where('email', '==', 'admin@admin.id').get();
+          if (!adminQuery.empty) {
+              addLog(`Info: Ditemukan ${adminQuery.size} dokumen admin di Firestore.`);
+          }
+
+          await auth.createUserWithEmailAndPassword('admin@admin.id', 'admin123');
+          addLog("Sukses: Akun admin@admin.id berhasil dibuat dengan password 'admin123'.");
+          toast.success("Akun admin berhasil dibuat!");
+      } catch (e: any) {
+          if (e.code === 'auth/email-already-in-use') {
+              addLog("Info: Akun admin@admin.id sudah ada di Firebase Auth.");
+              toast.info("Akun sudah ada di Auth. Jika password 'admin123' tidak bisa, silakan hapus user di Firebase Console.");
+          } else {
+              addLog(`Error: ${e.message}`);
+              toast.error("Gagal: " + e.message);
+          }
+      } finally {
+          setLoadingAction(false);
+      }
+  };
+
   useEffect(() => { checkAllCollections(); }, []);
 
   return (
@@ -142,6 +159,9 @@ const DeveloperConsole: React.FC<DeveloperConsoleProps> = ({ onBack }) => {
                         </div>
                     </div>
                     <div className="flex flex-wrap gap-3">
+                        <button onClick={handleResetAdmin} disabled={loadingAction} className="px-6 py-4 bg-rose-600 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center gap-3 active:scale-95 transition-all">
+                             {loadingAction ? <Loader2 className="w-4 h-4 animate-spin" /> : <><ShieldCheckIcon className="w-4 h-4" /> Reset Admin</>}
+                        </button>
                         <button onClick={handleSyncStudentUsers} disabled={loadingAction} className="px-6 py-4 bg-emerald-600 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center gap-3 active:scale-95 transition-all">
                              {loadingAction ? <Loader2 className="w-4 h-4 animate-spin" /> : <><UsersIcon className="w-4 h-4" /> Sinkron Akun Siswa</>}
                         </button>
@@ -172,6 +192,27 @@ const DeveloperConsole: React.FC<DeveloperConsoleProps> = ({ onBack }) => {
                     {logs.map((log, i) => (
                         <p key={i} className="text-slate-400 leading-relaxed mb-1"><span className="opacity-30">#</span> {log}</p>
                     ))}
+                </div>
+
+                {/* Database Index Fix Section */}
+                <div className="p-8 rounded-[3rem] border border-amber-100 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/30 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-6">
+                        <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600">
+                            <ExclamationTriangleIcon className="w-7 h-7" />
+                        </div>
+                        <div>
+                            <h4 className="font-black text-amber-900 dark:text-amber-400 uppercase tracking-tight text-sm">Perbaikan Index Database</h4>
+                            <p className="text-[9px] font-bold text-amber-700 dark:text-amber-500 uppercase mt-1 max-w-md">Jika riwayat login tidak muncul, Anda perlu mengaktifkan index komposit di Firebase Console.</p>
+                        </div>
+                    </div>
+                    <a 
+                        href="https://console.firebase.google.com/v1/r/project/studio-4774553931-88e8d/firestore/indexes?create_composite=Clpwcm9qZWN0cy9zdHVkaW8tNDc3NDU1MzkzMS04OGU4ZC9kYXRhYmFzZXMvKGRlZmF1bHQpL2NvbGxlY3Rpb25Hcm91cHMvbG9naW5fbG9ncy9pbmRleGVzL18QARoKCgZ1c2VySWQQARoNCgl0aW1lc3RhbXAQAhoMCghfX25hbWVfXxAC"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-6 py-3 bg-amber-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-amber-700 transition-all active:scale-95"
+                    >
+                        Klik Untuk Perbaiki Index
+                    </a>
                 </div>
             </div>
           )}

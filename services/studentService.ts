@@ -100,3 +100,80 @@ export const deleteStudent = async (id: string): Promise<void> => {
         throw error;
     }
 }
+
+export const getStudentsByClass = async (className: string): Promise<Student[]> => {
+    if (isMockMode) return [];
+    try {
+        if (!db) throw new Error("Database not initialized");
+        const snapshot = await db.collection(COLLECTION_NAME)
+            .where('tingkatRombel', '==', className)
+            .get();
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));
+    } catch (error: any) {
+        console.error("Error fetching students by class:", error);
+        return [];
+    }
+};
+
+export const syncAllStudentsWithProfiles = async (onProgress?: (msg: string) => void): Promise<{ updated: number, total: number }> => {
+    if (isMockMode) return { updated: 0, total: 0 };
+    try {
+        if (!db) throw new Error("Database not initialized");
+        
+        onProgress?.("Mengambil data master siswa...");
+        const studentsSnap = await db.collection(COLLECTION_NAME).get();
+        const total = studentsSnap.size;
+        onProgress?.(`Ditemukan ${total} data siswa.`);
+        
+        let updated = 0;
+        const batchSize = 500;
+        let batch = db.batch();
+        let count = 0;
+
+        for (const doc of studentsSnap.docs) {
+            const data = doc.data() as Student;
+            if (data.linkedUserId) {
+                const profileRef = db.collection(COLLECTION_PENGGUNA_SISWA).doc(data.linkedUserId);
+                const userRef = db.collection('users').doc(data.linkedUserId);
+                
+                const lastModified = new Date().toISOString();
+                
+                // Sync ke pengguna_siswa
+                batch.set(profileRef, {
+                    ...data,
+                    uid: data.linkedUserId,
+                    lastSynced: lastModified,
+                    lastModified
+                }, { merge: true });
+
+                // Sync ke users (untuk display name dan class)
+                batch.set(userRef, {
+                    displayName: data.namaLengkap,
+                    idUnik: data.idUnik,
+                    class: data.tingkatRombel,
+                    lastModified
+                }, { merge: true });
+
+                updated++;
+                count++;
+
+                if (count >= batchSize) {
+                    onProgress?.(`Menyimpan batch (${updated}/${total})...`);
+                    await batch.commit();
+                    batch = db.batch();
+                    count = 0;
+                }
+            }
+        }
+
+        if (count > 0) {
+            onProgress?.(`Menyimpan batch terakhir...`);
+            await batch.commit();
+        }
+
+        return { updated, total };
+    } catch (error: any) {
+        console.error("Error syncing students:", error);
+        throw error;
+    }
+};

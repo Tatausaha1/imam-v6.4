@@ -9,7 +9,7 @@ import { db, isMockMode } from '../services/firebase';
 import { Student, ViewState, MadrasahData, AttendanceRecord } from '../types';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { id as localeID } from 'date-fns/locale/id'; 
+import { id as localeID } from 'date-fns/locale'; 
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
 import { 
@@ -45,7 +45,7 @@ const Presensi: React.FC<{ onBack: () => void, onNavigate: (v: ViewState) => voi
     });
 
     db.collection('classes').get().then(snap => {
-        const names = snap.docs.map(doc => doc.data().name).sort();
+        const names = snap.docs.map(doc => doc.data().name).sort((a, b) => (a || '').localeCompare(b || ''));
         setClassList(names);
     });
 
@@ -106,12 +106,8 @@ const Presensi: React.FC<{ onBack: () => void, onNavigate: (v: ViewState) => voi
 
   const formatTimeDisplay = (val: string | null) => {
     if (!val) return '--:--';
-    const s = String(val);
-    if (s.includes('(')) return s.split(' ')[0].substring(0, 5);
-    return s.substring(0, 5);
+    return String(val).substring(0, 5);
   };
-
-  const isHaidValue = (val: string | null) => !!(val && String(val).includes('(Haid)'));
 
   const handleEditClick = (record: AttendanceRecord) => {
       setEditingRecord({ ...record });
@@ -119,11 +115,12 @@ const Presensi: React.FC<{ onBack: () => void, onNavigate: (v: ViewState) => voi
   };
 
   const handleDeleteRecord = async (record: AttendanceRecord) => {
-      if (record.status === 'Alpha' && !record.checkIn && !record.id.includes('-')) {
-          toast.error("Data presensi belum tercatat.");
+      const isRealRecord = attendanceSnapshot.some(r => r.id === record.id);
+      if (!isRealRecord) {
+          toast.error("Data presensi ini belum tersimpan (Status Alpha).");
           return;
       }
-      if (!window.confirm(`Hapus data presensi ${record.studentName} hari ini secara permanen?`)) return;
+      if (!window.confirm(`Hapus data presensi ${record.studentName} hari ini?`)) return;
       const toastId = toast.loading("Menghapus record...");
       try {
           if (!isMockMode && db) {
@@ -182,11 +179,10 @@ const Presensi: React.FC<{ onBack: () => void, onNavigate: (v: ViewState) => voi
             startY: 40,
             head: [['NO', 'ID UNIK', 'NAMA LENGKAP SISWA', 'KLS', 'MSK', 'DHA', 'ZHR', 'ASR', 'PLG', 'ST']],
             body: displayData.map((r, i) => {
-                const haidTime = (r.duha || r.zuhur || r.ashar || '').includes('(Haid)') ? formatTimeDisplay(r.duha || r.zuhur || r.ashar) : '';
                 return [
                     i + 1, r.idUnik || '-', (r.studentName || '').toUpperCase(), (r.class || '').replace('IPA ', '').replace('IPS ', ''),
                     formatTimeDisplay(r.checkIn), formatTimeDisplay(r.duha), formatTimeDisplay(r.zuhur), formatTimeDisplay(r.ashar), formatTimeDisplay(r.checkOut),
-                    r.status === 'Haid' ? `HD ${haidTime}` : r.status === 'Alpha' ? 'A' : 'H'
+                    r.status === 'Alpha' ? 'A' : 'H'
                 ]
             }),
             headStyles: { fillColor: [43, 58, 85], halign: 'center', fontSize: 6.5, textColor: [255, 255, 255] },
@@ -200,16 +196,15 @@ const Presensi: React.FC<{ onBack: () => void, onNavigate: (v: ViewState) => voi
 
   const SessionPill = ({ label, time, color }: { label: string, time: string | null, color: string }) => {
       const isFilled = !!time;
-      const isHaid = isHaidValue(time);
-      const activeColorClass = isHaid ? 'text-rose-600' : `text-${color}-600`;
-      const activeBgClass = isHaid ? 'bg-rose-50 border-rose-100' : `bg-${color}-50/50 dark:bg-${color}-900/10 border-${color}-100`;
+      const activeColorClass = `text-${color}-600`;
+      const activeBgClass = `bg-${color}-50/50 dark:bg-${color}-900/10 border-${color}-100`;
 
       return (
-        <div className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-2xl border transition-all ${
+        <div className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-xl border transition-all ${
             isFilled ? activeBgClass : 'bg-slate-50/30 dark:bg-slate-900/30 border-slate-100 opacity-40'
         }`}>
-            <span className={`text-[6px] font-black uppercase tracking-tighter ${isFilled ? activeColorClass : 'text-slate-400'}`}>{label}</span>
-            <span className={`text-[10px] font-mono font-black ${isFilled ? activeColorClass : 'text-slate-300'}`}>
+            <span className={`text-[7px] font-bold uppercase tracking-wider ${isFilled ? activeColorClass : 'text-slate-400'}`}>{label}</span>
+            <span className={`text-[11px] font-mono font-bold ${isFilled ? activeColorClass : 'text-slate-300'}`}>
                 {isFilled ? formatTimeDisplay(time) : '--:--'}
             </span>
         </div>
@@ -241,22 +236,30 @@ const Presensi: React.FC<{ onBack: () => void, onNavigate: (v: ViewState) => voi
                   <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                   <input 
                     type="text" 
-                    placeholder="Cari nama lengkap atau ID unik siswa..." 
+                    placeholder="Cari nama atau ID unik..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-indigo-100 dark:focus:border-indigo-900 rounded-2xl py-4 pl-12 pr-4 text-xs font-bold outline-none text-slate-800 dark:text-white shadow-inner transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-transparent focus:border-indigo-100 dark:focus:border-indigo-900 rounded-2xl py-3.5 pl-12 pr-10 text-xs font-bold outline-none text-slate-800 dark:text-white shadow-inner transition-all"
                   />
+                  {searchTerm && (
+                      <button 
+                        onClick={() => setSearchTerm('')}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors"
+                      >
+                          <XCircleIcon className="w-4 h-4" />
+                      </button>
+                  )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                      <button onClick={() => setDate(new Date(date.getTime() - 86400000))} className="p-2.5 rounded-xl transition-all active:scale-90 hover:bg-white dark:hover:bg-slate-800 text-slate-400"><ChevronLeft className="w-4 h-4"/></button>
-                      <div className="flex-1 text-center min-w-[140px]"><h3 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest">{format(date, "dd MMMM yyyy", { locale: localeID })}</h3></div>
-                      <button onClick={() => setDate(new Date(date.getTime() + 86400000))} className="p-2.5 rounded-xl transition-all active:scale-90 hover:bg-white dark:hover:bg-slate-800 text-slate-400"><ChevronRight className="w-4 h-4"/></button>
+                  <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 p-1 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <button onClick={() => setDate(new Date(date.getTime() - 86400000))} className="p-2 rounded-xl transition-all active:scale-90 hover:bg-white dark:hover:bg-slate-800 text-slate-400"><ChevronLeft className="w-4 h-4"/></button>
+                      <div className="flex-1 text-center min-w-[120px]"><h3 className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-widest">{format(date, "dd MMM yyyy", { locale: localeID })}</h3></div>
+                      <button onClick={() => setDate(new Date(date.getTime() + 86400000))} className="p-2 rounded-xl transition-all active:scale-90 hover:bg-white dark:hover:bg-slate-800 text-slate-400"><ChevronRight className="w-4 h-4"/></button>
                   </div>
                   <div className="relative group">
                       <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-indigo-500 transition-colors"><BookOpenIcon className="w-4 h-4" /></div>
-                      <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-10 text-xs font-black text-slate-800 dark:text-white outline-none appearance-none cursor-pointer shadow-inner">
+                      <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl py-3.5 pl-12 pr-10 text-[10px] font-black text-slate-800 dark:text-white outline-none appearance-none cursor-pointer shadow-inner">
                           <option value="All">SEMUA ROMBEL</option>
                           {classList.map(name => <option key={name} value={name}>{name}</option>)}
                       </select>
@@ -271,29 +274,27 @@ const Presensi: React.FC<{ onBack: () => void, onNavigate: (v: ViewState) => voi
                   <div className="py-20 text-center flex flex-col items-center gap-3"><Loader2 className="w-10 h-10 animate-spin text-indigo-500 opacity-20" /><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sinkronisasi Absensi...</p></div>
               ) : displayData.length > 0 ? (
                   displayData.map((record) => {
-                    const isHaid = record.status === 'Haid';
-                    const haidTime = isHaid ? formatTimeDisplay(record.duha || record.zuhur || record.ashar) : '';
                     return (
-                    <div key={record.id} className="bg-white dark:bg-[#151E32] p-5 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm group relative overflow-hidden transition-all hover:shadow-xl hover:border-indigo-100">
-                        <div className={`absolute top-0 left-0 w-1.5 h-full ${isHaid ? 'bg-rose-500' : 'bg-indigo-500 opacity-20'}`}></div>
+                    <div key={record.id} className="bg-white dark:bg-[#151E32] p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm group relative overflow-hidden transition-all hover:shadow-xl hover:border-indigo-100">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 opacity-20"></div>
                         <div className="flex items-start justify-between mb-6 pl-2">
                             <div className="flex items-center gap-4 min-w-0 flex-1">
-                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg shrink-0 border-2 transition-transform group-hover:scale-105 ${isHaid ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>{(record.studentName || '?').charAt(0)}</div>
+                                <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-black text-base shrink-0 transition-transform group-hover:scale-105">{(record.studentName || '?').charAt(0)}</div>
                                 <div className="min-w-0">
-                                    <h4 className="font-black text-sm uppercase truncate text-slate-800 dark:text-white">{record.studentName}</h4>
-                                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{record.class || '-'}</span>
+                                    <h4 className="font-bold text-sm uppercase truncate text-slate-800 dark:text-white">{record.studentName}</h4>
+                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{record.class || '-'}</span>
                                         <span className="text-[9px] font-mono text-slate-300">#{record.idUnik || '-'}</span>
-                                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${isHaid ? 'bg-rose-50 text-rose-600' : 'text-slate-400 bg-slate-100'}`}>{isHaid ? `HAID (${haidTime})` : record.status}</span>
+                                        <span className="text-[8px] font-bold uppercase px-2 py-0.5 rounded-md text-slate-400 bg-slate-100">{record.status}</span>
                                     </div>
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                               <button onClick={() => handleEditClick(record)} className="p-3 bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-indigo-600 rounded-2xl transition-all"><PencilIcon className="w-4 h-4" /></button>
-                               <button onClick={() => handleDeleteRecord(record)} className="p-3 bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-rose-600 rounded-2xl transition-all"><TrashIcon className="w-4 h-4" /></button>
+                               <button onClick={() => handleEditClick(record)} className="p-2.5 bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-indigo-600 rounded-xl transition-all"><PencilIcon className="w-4 h-4" /></button>
+                               <button onClick={() => handleDeleteRecord(record)} className="p-2.5 bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-rose-600 rounded-xl transition-all"><TrashIcon className="w-4 h-4" /></button>
                             </div>
                         </div>
-                        <div className="flex gap-2.5 pl-2 cursor-pointer" onClick={() => handleEditClick(record)}>
+                        <div className="flex gap-2 pl-2 cursor-pointer" onClick={() => handleEditClick(record)}>
                             <SessionPill label="MSK" time={record.checkIn} color="emerald" />
                             <SessionPill label="DHA" time={record.duha} color="violet" />
                             <SessionPill label="ZHR" time={record.zuhur} color="blue" />
@@ -331,7 +332,6 @@ const Presensi: React.FC<{ onBack: () => void, onNavigate: (v: ViewState) => voi
                             className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-[11px] font-black uppercase outline-none shadow-inner cursor-pointer"
                         >
                             <option value="Hadir">HADIR</option>
-                            <option value="Haid">HAID</option>
                             <option value="Sakit">SAKIT</option>
                             <option value="Izin">IZIN</option>
                             <option value="Alpha">ALPHA / ALPA</option>
@@ -344,7 +344,7 @@ const Presensi: React.FC<{ onBack: () => void, onNavigate: (v: ViewState) => voi
                               <input 
                                 type="time" 
                                 value={formatTimeDisplay(editingRecord.checkIn)} 
-                                onChange={e => setEditingRecord({ ...editingRecord, checkIn: editingRecord.status === 'Haid' ? `${e.target.value} (Haid)` : `${e.target.value}:00` })}
+                                onChange={e => setEditingRecord({ ...editingRecord, checkIn: `${e.target.value}:00` })}
                                 className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-[11px] font-black shadow-inner"
                               />
                           </div>
@@ -355,6 +355,36 @@ const Presensi: React.FC<{ onBack: () => void, onNavigate: (v: ViewState) => voi
                                 value={formatTimeDisplay(editingRecord.checkOut)} 
                                 onChange={e => setEditingRecord({ ...editingRecord, checkOut: `${e.target.value}:00` })}
                                 className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-[11px] font-black shadow-inner"
+                              />
+                          </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                          <div className="space-y-1.5">
+                              <label className="text-[8px] font-black text-slate-400 uppercase ml-1 tracking-widest">Duha</label>
+                              <input 
+                                type="time" 
+                                value={formatTimeDisplay(editingRecord.duha)} 
+                                onChange={e => setEditingRecord({ ...editingRecord, duha: `${e.target.value}:00` })}
+                                className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black shadow-inner"
+                              />
+                          </div>
+                          <div className="space-y-1.5">
+                              <label className="text-[8px] font-black text-slate-400 uppercase ml-1 tracking-widest">Zuhur</label>
+                              <input 
+                                type="time" 
+                                value={formatTimeDisplay(editingRecord.zuhur)} 
+                                onChange={e => setEditingRecord({ ...editingRecord, zuhur: `${e.target.value}:00` })}
+                                className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black shadow-inner"
+                              />
+                          </div>
+                          <div className="space-y-1.5">
+                              <label className="text-[8px] font-black text-slate-400 uppercase ml-1 tracking-widest">Ashar</label>
+                              <input 
+                                type="time" 
+                                value={formatTimeDisplay(editingRecord.ashar)} 
+                                onChange={e => setEditingRecord({ ...editingRecord, ashar: `${e.target.value}:00` })}
+                                className="w-full px-3 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black shadow-inner"
                               />
                           </div>
                       </div>

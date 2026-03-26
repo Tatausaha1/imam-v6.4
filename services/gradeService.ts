@@ -1,6 +1,7 @@
 
 import { db, isMockMode } from './firebase';
 import { StudentGrade } from '../types';
+import { createNotification } from './notificationService';
 
 const COLLECTION_GRADES = 'nilai';
 const COLLECTION_SUBJECTS = 'mapel';
@@ -48,6 +49,21 @@ export const saveStudentGrade = async (grade: StudentGrade): Promise<void> => {
         const final = (grade.nilaiHarian + grade.nilaiUTS + grade.nilaiUAS) / 3;
         const gradeToSave = { ...grade, nilaiAkhir: parseFloat(final.toFixed(2)) };
         await db.collection(COLLECTION_GRADES).doc(docId).set(gradeToSave, { merge: true });
+
+        // Trigger Notification for Student
+        const studentDoc = await db.collection('students').doc(grade.studentId).get();
+        const studentData = studentDoc.data();
+        if (studentDoc.exists && studentData?.linkedUserId) {
+            const subjectDoc = await db.collection(COLLECTION_SUBJECTS).doc(grade.subjectId).get();
+            const subjectName = subjectDoc.exists ? subjectDoc.data()?.name : 'Mata Pelajaran';
+            
+            await createNotification(studentData.linkedUserId, {
+                title: 'Nilai Diperbarui!',
+                message: `Nilai Anda untuk mata pelajaran ${subjectName} telah diperbarui. Nilai Akhir: ${gradeToSave.nilaiAkhir}`,
+                type: 'grade',
+                link: 'GRADES'
+            });
+        }
     } catch (error) {
         throw error;
     }

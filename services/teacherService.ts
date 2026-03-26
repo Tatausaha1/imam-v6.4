@@ -6,7 +6,7 @@
 import { db, isMockMode } from './firebase';
 import { Teacher } from '../types';
 
-const COLLECTION_NAME = 'guru';
+const COLLECTION_NAME = 'teachers';
 
 export const getTeachers = async (): Promise<Teacher[]> => {
   if (isMockMode) return [];
@@ -24,7 +24,11 @@ export const addTeacher = async (teacher: Teacher): Promise<void> => {
   if (isMockMode) return;
   try {
     if (!db) throw new Error("Database not initialized");
-    await db.collection(COLLECTION_NAME).add(teacher);
+    const docId = teacher.nip && teacher.nip !== '-' ? teacher.nip : db.collection(COLLECTION_NAME).doc().id;
+    await db.collection(COLLECTION_NAME).doc(docId).set({
+        ...teacher,
+        createdAt: new Date().toISOString()
+    }, { merge: true });
   } catch (error) {
     console.error("Error adding teacher:", error);
     throw error;

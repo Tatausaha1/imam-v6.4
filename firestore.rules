@@ -20,7 +20,11 @@ service cloud.firestore {
     
     function isAdmin() {
       let role = getUserRole();
-      return isSignedIn() && (role == 'admin' || role == 'developer');
+      return isSignedIn() && (
+        role == 'admin' || 
+        role == 'developer' || 
+        (request.auth.token.email == "tuman1hst@gmail.com" && request.auth.token.email_verified == true)
+      );
     }
     
     function isStaff() {
@@ -31,8 +35,14 @@ service cloud.firestore {
         role == 'Staf' || 
         role == 'Guru' || 
         role == 'Wali Kelas' || 
+        role == 'Guru BK' ||
         role == 'kepala_madrasah'
       );
+    }
+
+    function isClassLeader() {
+      let role = getUserRole();
+      return isSignedIn() && role == 'Ketua Kelas';
     }
 
     // --- Collection Rules ---
@@ -61,7 +71,7 @@ service cloud.firestore {
     }
 
     match /attendance/{recordId} {
-      allow read: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.studentId);
+      allow read: if isStaff() || (isClassLeader() && getUserData().class == resource.data.class) || (isSignedIn() && request.auth.uid == resource.data.studentId);
       allow write: if isStaff();
     }
 
@@ -119,6 +129,13 @@ service cloud.firestore {
     match /login_logs/{logId} {
       allow create: if isSignedIn();
       allow read: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.userId);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow update: if isSignedIn() && request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create: if isStaff();
+      allow delete: if isAdmin();
     }
 
     match /{document=**} {

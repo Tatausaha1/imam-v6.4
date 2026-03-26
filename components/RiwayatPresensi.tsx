@@ -50,7 +50,10 @@ const RiwayatPresensi: React.FC<RiwayatPresensiProps> = ({ onBack, onNavigate, u
         return;
     }
     if (db) {
-        db.collection('classes').get().then(s => setClasses(s.docs.map(d => d.data().name).sort()));
+        db.collection('classes').get().then(s => {
+            const names = s.docs.map(d => d.data().name).sort((a, b) => (a || '').localeCompare(b || ''));
+            setClasses(names);
+        });
         
         // Listener daftar siswa aktif hanya perlu sekali saat mount
         const unsubStudents = db.collection('students').where('status', '==', 'Aktif').onSnapshot(snap => {
@@ -171,10 +174,10 @@ const RiwayatPresensi: React.FC<RiwayatPresensiProps> = ({ onBack, onNavigate, u
           const status = editForm.status;
           const payload: any = {
               status: status,
-              checkIn: editForm.checkIn ? (status === 'Haid' ? `${editForm.checkIn} (Haid)` : `${editForm.checkIn}:00`) : null,
-              duha: editForm.duha ? (status === 'Haid' ? `${editForm.duha} (Haid)` : `${editForm.duha}:00`) : null,
-              zuhur: editForm.zuhur ? (status === 'Haid' ? `${editForm.zuhur} (Haid)` : `${editForm.zuhur}:00`) : null,
-              ashar: editForm.ashar ? (status === 'Haid' ? `${editForm.ashar} (Haid)` : `${editForm.ashar}:00`) : null,
+              checkIn: editForm.checkIn ? `${editForm.checkIn}:00` : null,
+              duha: editForm.duha ? `${editForm.duha}:00` : null,
+              zuhur: editForm.zuhur ? `${editForm.zuhur}:00` : null,
+              ashar: editForm.ashar ? `${editForm.ashar}:00` : null,
               checkOut: editForm.checkOut ? `${editForm.checkOut}:00` : null,
               studentId: editingRecord.studentId,
               studentName: editingRecord.studentName,
@@ -201,12 +204,11 @@ const RiwayatPresensi: React.FC<RiwayatPresensiProps> = ({ onBack, onNavigate, u
 
   const SessionStatus = ({ label, time }: { label: string, time: string | null }) => {
       const isFilled = !!time;
-      const isHaid = isHaidTime(time);
       const displayJam = cleanTime(time);
       return (
           <div className={`flex flex-col items-center gap-0.5 p-1.5 rounded-xl border flex-1 transition-all ${
               isFilled 
-              ? (isHaid ? 'bg-rose-50 border-rose-100 text-rose-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600') 
+              ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
               : 'bg-slate-50 dark:bg-slate-900 border-transparent opacity-30'
           }`}>
               <span className="text-[6px] font-black uppercase tracking-tighter">{label}</span>
@@ -244,7 +246,7 @@ const RiwayatPresensi: React.FC<RiwayatPresensiProps> = ({ onBack, onNavigate, u
             </div>
             {!isStudent && (
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                    {['All', 'Hadir', 'Sakit', 'Izin', 'Alpha', 'Haid'].map(s => (
+                    {['All', 'Hadir', 'Sakit', 'Izin', 'Alpha'].map(s => (
                         <button key={s} onClick={() => setFilterStatus(s)} className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all border whitespace-nowrap ${filterStatus === s ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/20' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800'}`}>{s === 'Alpha' ? 'Belum Direkam' : s}</button>
                     ))}
                 </div>
@@ -259,20 +261,18 @@ const RiwayatPresensi: React.FC<RiwayatPresensiProps> = ({ onBack, onNavigate, u
                 <div className="grid grid-cols-1 gap-4">
                     {displayData.map((r) => {
                         const hasData = attendanceRecords.find(att => att.studentId === r.studentId);
-                        const isHaid = r.status === 'Haid';
-                        const haidTime = isHaid ? cleanTime(r.duha || r.zuhur || r.ashar) : '';
                         return (
                         <div key={r.id} className="bg-white dark:bg-[#151E32] p-5 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm group relative overflow-hidden transition-all hover:border-indigo-100">
-                            <div className={`absolute top-0 left-0 w-1.5 h-full ${isHaid ? 'bg-rose-500' : r.status === 'Hadir' ? 'bg-emerald-500' : r.status === 'Alpha' ? 'bg-slate-200' : 'bg-amber-400'}`}></div>
+                            <div className={`absolute top-0 left-0 w-1.5 h-full ${r.status === 'Hadir' ? 'bg-emerald-500' : r.status === 'Alpha' ? 'bg-slate-200' : 'bg-amber-400'}`}></div>
                             
                             <div className="flex items-start justify-between mb-4 pl-2">
                                 <div className="flex items-center gap-4 min-w-0">
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg shrink-0 border-2 transition-transform group-hover:scale-105 ${isHaid ? 'bg-rose-50 text-rose-600 border-rose-100' : r.status === 'Alpha' ? 'bg-slate-50 text-slate-400 border-slate-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>{(r.studentName || '?').charAt(0)}</div>
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg shrink-0 border-2 transition-transform group-hover:scale-105 ${r.status === 'Alpha' ? 'bg-slate-50 text-slate-400 border-slate-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>{(r.studentName || '?').charAt(0)}</div>
                                     <div className="min-w-0">
                                         <h4 className={`font-black text-xs uppercase truncate mb-1.5 ${r.status === 'Alpha' ? 'text-slate-400' : 'text-slate-800 dark:text-white'}`}>{r.studentName}</h4>
                                         <div className="flex items-center gap-2">
-                                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${isHaid ? 'bg-rose-50 text-rose-600' : r.status === 'Alpha' ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-600'}`}>
-                                                {r.status === 'Alpha' ? 'BELUM DIREKAM' : isHaid ? `HAID (${haidTime || '--:--'})` : r.status}
+                                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${r.status === 'Alpha' ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-600'}`}>
+                                                {r.status === 'Alpha' ? 'BELUM DIREKAM' : r.status}
                                             </span>
                                             <span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">{r.class || '-'}</span>
                                         </div>
@@ -322,7 +322,6 @@ const RiwayatPresensi: React.FC<RiwayatPresensiProps> = ({ onBack, onNavigate, u
                             <select value={editForm.status} onChange={(e) => setEditForm({...editForm, status: e.target.value as AttendanceStatus})} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-[11px] font-black uppercase outline-none shadow-inner appearance-none cursor-pointer">
                                 <option value="Alpha">BELUM DIREKAM (ALPHA)</option>
                                 <option value="Hadir">HADIR</option>
-                                <option value="Haid">HAID</option>
                                 <option value="Sakit">SAKIT</option>
                                 <option value="Izin">IZIN / DISPEN</option>
                             </select>

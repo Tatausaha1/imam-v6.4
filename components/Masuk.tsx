@@ -13,7 +13,7 @@ interface MasukProps {
 const Masuk: React.FC<MasukProps> = ({ onLogin, onRegisterClick }) => {
   // Set default ke admin@admin.id sesuai permintaan
   const [email, setEmail] = useState('admin@admin.id');
-  const [password, setPassword] = useState('admin');
+  const [password, setPassword] = useState('admin123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -55,16 +55,26 @@ const Masuk: React.FC<MasukProps> = ({ onLogin, onRegisterClick }) => {
         try {
             userCredential = await auth.signInWithEmailAndPassword(u, p);
         } catch (signInErr: any) {
-            // Jika akun admin@admin.id belum ada (invalid-credential atau user-not-found)
-            // Coba daftarkan otomatis sebagai Admin Utama
-            if (u === 'admin@admin.id' && (signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/user-not-found')) {
-                console.log("Admin account not found. Attempting auto-registration...");
-                try {
-                    userCredential = await auth.createUserWithEmailAndPassword(u, p);
-                    toast.info("Akun Admin Utama berhasil diinisialisasi.");
-                } catch (createErr: any) {
-                    // Jika password terlalu lemah atau email sudah ada dengan password beda
-                    throw signInErr; 
+            console.warn("Sign-in attempt failed:", signInErr.code);
+            
+            // Jika akun admin@admin.id gagal login (bisa karena belum ada atau password salah)
+            // Kita coba inisialisasi jika ini adalah admin@admin.id
+            if (u === 'admin@admin.id') {
+                if (signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/user-not-found') {
+                    console.log("Admin account might not exist. Attempting auto-registration...");
+                    try {
+                        userCredential = await auth.createUserWithEmailAndPassword(u, p);
+                        toast.success("Akun Admin Utama berhasil diinisialisasi.");
+                    } catch (createErr: any) {
+                        if (createErr.code === 'auth/email-already-in-use') {
+                            // Akun sudah ada tapi password salah
+                            setError('Password Admin salah. Jika lupa, silakan reset melalui Firebase Console.');
+                            throw signInErr;
+                        }
+                        throw createErr;
+                    }
+                } else {
+                    throw signInErr;
                 }
             } else {
                 throw signInErr;
@@ -186,8 +196,27 @@ const Masuk: React.FC<MasukProps> = ({ onLogin, onRegisterClick }) => {
                 </div>
 
                 {error && (
-                    <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 animate-bounce border border-red-100 dark:border-red-900/30">
-                        <ShieldCheckIcon className="w-4 h-4" /> {error}
+                    <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-[10px] font-black uppercase tracking-widest flex flex-col gap-2 animate-bounce border border-red-100 dark:border-red-900/30">
+                        <div className="flex items-center gap-3">
+                            <ShieldCheckIcon className="w-4 h-4" /> {error}
+                        </div>
+                        {error.includes('Email atau Password salah') && (
+                            <button 
+                              type="button" 
+                              onClick={async () => {
+                                  if (!email) { toast.error("Masukkan email terlebih dahulu."); return; }
+                                  try {
+                                      await auth?.sendPasswordResetEmail(email);
+                                      toast.success("Link reset password telah dikirim ke email Anda.");
+                                  } catch (e: any) {
+                                      toast.error("Gagal mengirim link reset: " + e.message);
+                                  }
+                              }}
+                              className="text-indigo-600 dark:text-indigo-400 underline text-[9px] font-black uppercase tracking-widest text-left ml-7"
+                            >
+                                Lupa Password? Klik di sini
+                            </button>
+                        )}
                     </div>
                 )}
 

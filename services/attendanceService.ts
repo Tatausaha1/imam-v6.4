@@ -23,16 +23,15 @@ interface ScanResult {
 const COLLECTION_ATTENDANCE = 'attendance';
 const COLLECTION_STUDENTS = 'students';
 
-export const recordAttendanceByScan = async (rawCode: string, session: AttendanceSession, isHaid: boolean = false): Promise<ScanResult> => {
+export const recordAttendanceByScan = async (rawCode: string, session: AttendanceSession): Promise<ScanResult> => {
     // Pembersihan kode dari karakter sampah (biasanya dari scanner hardware)
     const code = String(rawCode || '').replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim();
     if (!code) return { success: false, message: "ID KOSONG" };
 
     const today = format(new Date(), "yyyy-MM-dd");
     const nowFull = format(new Date(), "HH:mm:ss");
-    const nowShort = format(new Date(), "HH:mm");
     
-    const recordValue = isHaid ? `${nowShort} (Haid)` : nowFull;
+    const recordValue = nowFull;
     
     // Mapping sesi ke field database
     const fieldMap: Record<string, string> = {
@@ -64,7 +63,6 @@ export const recordAttendanceByScan = async (rawCode: string, session: Attendanc
         }
 
         if (!studentData) return { success: false, message: `ID "${code}" TIDAK TERDAFTAR` };
-        if (isHaid && studentData.jenisKelamin === 'Laki-laki') return { success: false, message: "KHUSUS PUTRI" };
 
         const attendanceId = `${studentData.id}_${today}`;
         const attendanceRef = db.collection(COLLECTION_ATTENDANCE).doc(attendanceId);
@@ -87,22 +85,14 @@ export const recordAttendanceByScan = async (rawCode: string, session: Attendanc
         };
 
         // Logika Status Otomatis
-        if (isHaid) {
-            updatePayload.status = 'Haid';
-            // Catat jam yang sama ke seluruh sesi sholat (Duha, Zuhur, Ashar)
-            // Sesuai permintaan: "otomatis mengisi status 'Haid' pada semua sesi ibadah (Duha/Zuhur/Ashar) lengkap dengan timestamp-nya"
-            updatePayload.duha = recordValue;
-            updatePayload.zuhur = recordValue;
-            updatePayload.ashar = recordValue;
-        } else if (!currentData?.status || currentData.status === 'Alpha' || currentData.status === 'Haid') {
-            // Jika sebelumnya Haid tapi sekarang scan normal, update status jadi Hadir jika ini sesi Masuk
+        if (!currentData?.status || currentData.status === 'Alpha') {
             if (session === 'Masuk') updatePayload.status = 'Hadir';
         }
 
         if (docSnapshot?.exists) await attendanceRef.update(updatePayload);
         else await attendanceRef.set(updatePayload);
 
-        return { success: true, message: isHaid ? "HAID DICATAT" : "BERHASIL", student: studentData };
+        return { success: true, message: "BERHASIL", student: studentData };
     } catch (error: any) {
         console.error("Attendance Log Error:", error);
         return { success: false, message: "ERROR DATABASE" };
