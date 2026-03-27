@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { deleteStudent, updateStudent, addStudent } from '../services/studentService';
+import { adminUpdatePassword } from '../services/authService';
 import { Student, UserRole } from '../types';
 import { db, auth, isMockMode } from '../services/firebase';
 import { toast } from 'sonner';
@@ -34,6 +35,13 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
   const [accountEmail, setAccountEmail] = useState('');
   const [accountPassword, setAccountPassword] = useState('');
   const [accountRole, setAccountRole] = useState<UserRole>(UserRole.SISWA);
+
+  // State untuk Ubah Password (Admin)
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [targetUid, setTargetUid] = useState('');
+  const [targetName, setTargetName] = useState('');
 
   const initialFormState: Partial<Student> = {
     namaLengkap: '',
@@ -210,6 +218,53 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
       }
   };
 
+  const handleOpenPasswordModal = (uid: string, name: string) => {
+      setTargetUid(uid);
+      setTargetName(name);
+      setNewPassword('');
+      setIsPasswordModalOpen(true);
+  };
+
+  const handleUpdatePassword = async () => {
+      if (newPassword.length < 6) {
+          toast.error("Password minimal 6 karakter.");
+          return;
+      }
+      setUpdatingPassword(true);
+      const toastId = toast.loading("Memperbarui password...");
+      try {
+          const res = await adminUpdatePassword(targetUid, newPassword);
+          if (res.success) {
+              toast.success("Password berhasil diperbarui.", { id: toastId });
+              setIsPasswordModalOpen(false);
+          } else {
+              toast.error("Gagal: " + res.error, { id: toastId });
+          }
+      } catch (e: any) {
+          toast.error("Gagal: " + e.message, { id: toastId });
+      } finally {
+          setUpdatingPassword(false);
+      }
+  };
+
+  const handleResetPasswordEmail = async (email: string) => {
+      if (!email) {
+          toast.error("Email tidak ditemukan.");
+          return;
+      }
+      const toastId = toast.loading("Mengirim email reset...");
+      try {
+          if (isMockMode) {
+              await new Promise(r => setTimeout(r, 1000));
+          } else if (auth) {
+              await auth.sendPasswordResetEmail(email);
+          }
+          toast.success("Email reset password telah dikirim ke " + email, { id: toastId });
+      } catch (e: any) {
+          toast.error("Gagal: " + e.message, { id: toastId });
+      }
+  };
+
   const canManage = userRole === UserRole.ADMIN || userRole === UserRole.DEVELOPER;
 
   return (
@@ -376,6 +431,40 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
                               </div>
                           )}
 
+                          {/* BAGIAN MANAJEMEN AKUN (JIKA SUDAH ADA) */}
+                          {formData.linkedUserId && (
+                              <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800">
+                                  <div className="flex items-center justify-between mb-4">
+                                      <div className="flex items-center gap-3">
+                                          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-lg">
+                                              <LockIcon className="w-5 h-5" />
+                                          </div>
+                                          <div>
+                                              <h4 className="text-xs font-black text-slate-800 dark:text-emerald-400 uppercase tracking-widest">Keamanan Akun</h4>
+                                              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Siswa ini sudah memiliki akun terdaftar</p>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                      <button 
+                                        type="button"
+                                        onClick={() => handleOpenPasswordModal(formData.linkedUserId!, formData.namaLengkap!)}
+                                        className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase text-indigo-600 hover:bg-indigo-50 transition-all"
+                                      >
+                                          <PencilIcon className="w-3 h-3" /> Ubah Password Manual
+                                      </button>
+                                      <button 
+                                        type="button"
+                                        onClick={() => handleResetPasswordEmail(formData.email!)}
+                                        className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase text-emerald-600 hover:bg-emerald-50 transition-all"
+                                      >
+                                          <EnvelopeIcon className="w-3 h-3" /> Kirim Link Reset Password
+                                      </button>
+                                  </div>
+                              </div>
+                          )}
+
                           <div className="space-y-5">
                               <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2 border-b border-slate-50 dark:border-indigo-900/30 pb-2">
                                   <IdentificationIcon className="w-3.5 h-3.5" /> Informasi Peserta Didik
@@ -430,6 +519,48 @@ const DataSiswa: React.FC<{ onBack: () => void, userRole: UserRole }> = ({ onBac
                       <button type="submit" form="studentForm" disabled={saving} className="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-2xl shadow-indigo-500/20 transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50">
                         {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <SaveIcon className="w-5 h-5" />}
                         <span className="uppercase tracking-[0.2em] text-[10px]">{editingId ? 'SIMPAN PERUBAHAN' : 'REGISTRASI DATA & EMAIL'}</span>
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+      {/* MODAL UBAH PASSWORD */}
+      {isPasswordModalOpen && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+              <div className="bg-white dark:bg-[#0B1121] w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-6 animate-in zoom-in duration-300">
+                  <div className="text-center space-y-2">
+                      <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                          <LockIcon className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">Ubah Password Siswa</h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">{targetName}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                      <label className="text-[9px] font-black text-indigo-600 uppercase tracking-widest ml-1">Password Baru</label>
+                      <input 
+                        type="password" 
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:border-indigo-500"
+                        placeholder="Masukkan password baru..."
+                      />
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                      <button 
+                        onClick={() => setIsPasswordModalOpen(false)}
+                        className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black rounded-2xl text-[10px] uppercase tracking-widest"
+                      >
+                          Batal
+                      </button>
+                      <button 
+                        onClick={handleUpdatePassword}
+                        disabled={updatingPassword}
+                        className="flex-[2] py-4 bg-indigo-600 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                          {updatingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />}
+                          SIMPAN PASSWORD
                       </button>
                   </div>
               </div>

@@ -36,6 +36,38 @@ else {
 // Limit body size to 50mb
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({extended: true, limit: '50mb'}));
+
+// Initialize Firebase Admin
+const admin = require('firebase-admin');
+try {
+    const firebaseConfig = require('../firebase-applet-config.json');
+    admin.initializeApp({
+        credential: admin.credential.applicationDefault(),
+        projectId: firebaseConfig.projectId,
+    });
+    console.log("Firebase Admin initialized successfully.");
+} catch (e) {
+    console.error("Firebase Admin initialization failed. Admin features might not work.", e.message);
+}
+
+// API endpoint to update user password (Admin only)
+app.post('/api/admin/update-password', async (req, res) => {
+    const { uid, newPassword } = req.body;
+    if (!uid || !newPassword) {
+        return res.status(400).json({ success: false, error: 'UID and newPassword are required' });
+    }
+
+    try {
+        await admin.auth().updateUser(uid, {
+            password: newPassword,
+        });
+        res.json({ success: true, message: 'Password updated successfully' });
+    } catch (error) {
+        console.error('Error updating password:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.set('trust proxy', 1 /* number of proxies between user and server */)
 
 // Rate limiter for the proxy

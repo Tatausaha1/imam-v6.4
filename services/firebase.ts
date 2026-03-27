@@ -32,8 +32,16 @@ try {
   }
 
   auth = firebase.auth();
-  db = firebase.firestore();
-  rtdb = firebase.database();
+  
+  // Gunakan firestoreDatabaseId jika ada (untuk Enterprise/Named Database)
+  const dbId = (firebaseConfig as any).firestoreDatabaseId;
+  if (dbId && dbId !== '(default)') {
+      db = (firebase.app() as any).firestore(dbId);
+  } else {
+      db = firebase.firestore();
+  }
+  
+  rtdb = (firebase as any).database();
   storage = firebase.storage();
   
   if (typeof window !== 'undefined') {
@@ -43,14 +51,14 @@ try {
             else if (err.code === 'unimplemented') console.warn("Persistence unsupported.");
         });
 
-      firebase.analytics.isSupported()
-        .then((supported) => {
+      (firebase as any).analytics.isSupported()
+        .then((supported: boolean) => {
           if (supported) analytics = firebase.analytics();
         })
         .catch(() => {});
   }
   
-  console.log("IMAM Core: CLOUD DATABASE CONNECTED (" + firebaseConfig.databaseURL + ")");
+  console.log("IMAM Core: CLOUD DATABASE CONNECTED (" + ((firebaseConfig as any).databaseURL || firebaseConfig.projectId) + ")");
 
 } catch (error) {
   console.error("Firebase critical initialization error:", error);

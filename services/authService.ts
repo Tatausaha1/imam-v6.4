@@ -10,6 +10,28 @@ interface SSOResponse {
     error?: string;
 }
 
+export const adminUpdatePassword = async (uid: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+        const response = await fetch('/api/admin/update-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ uid, newPassword }),
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            return { success: true };
+        } else {
+            return { success: false, error: data.error };
+        }
+    } catch (error: any) {
+        console.error("Admin Update Password Error:", error);
+        return { success: false, error: error.message };
+    }
+};
+
 export const loginWithSSO = async (idToken: string): Promise<{ success: boolean; role?: UserRole; error?: string }> => {
     // 1. Client-Side Simulation Mode
     // This runs immediately if the token matches, bypassing any server calls

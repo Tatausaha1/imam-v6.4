@@ -4,6 +4,7 @@ import { LockIcon, ArrowRightIcon, Loader2, ShieldCheckIcon, AppLogo, EnvelopeIc
 import { UserRole } from '../types';
 import { auth, db, isMockMode } from '../services/firebase';
 import { toast } from 'sonner';
+import firebaseConfig from '../firebase-applet-config.json';
 
 interface MasukProps {
   onLogin: (role: UserRole) => void;
@@ -53,22 +54,23 @@ const Masuk: React.FC<MasukProps> = ({ onLogin, onRegisterClick }) => {
         // 1. Sign-in ke Firebase Auth
         let userCredential;
         try {
+            console.log("Attempting login for:", u);
             userCredential = await auth.signInWithEmailAndPassword(u, p);
+            console.log("Login successful:", userCredential.user?.uid);
         } catch (signInErr: any) {
-            console.warn("Sign-in attempt failed:", signInErr.code);
+            console.error("Sign-in error details:", signInErr.code, signInErr.message);
             
-            // Jika akun admin@admin.id gagal login (bisa karena belum ada atau password salah)
-            // Kita coba inisialisasi jika ini adalah admin@admin.id
+            // Jika akun admin@admin.id gagal login
             if (u === 'admin@admin.id') {
-                if (signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/user-not-found') {
-                    console.log("Admin account might not exist. Attempting auto-registration...");
+                if (signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/wrong-password') {
+                    console.log("Admin account issue detected. Attempting auto-registration/reset...");
                     try {
                         userCredential = await auth.createUserWithEmailAndPassword(u, p);
                         toast.success("Akun Admin Utama berhasil diinisialisasi.");
                     } catch (createErr: any) {
+                        console.error("Auto-registration failed:", createErr.code, createErr.message);
                         if (createErr.code === 'auth/email-already-in-use') {
-                            // Akun sudah ada tapi password salah
-                            setError('Password Admin salah. Jika lupa, silakan reset melalui Firebase Console.');
+                            setError('Password Admin salah. Silakan hubungi pengembang untuk reset.');
                             throw signInErr;
                         }
                         throw createErr;
@@ -120,7 +122,12 @@ const Masuk: React.FC<MasukProps> = ({ onLogin, onRegisterClick }) => {
         } else if (err.code === 'auth/too-many-requests') {
             setError('Terlalu banyak percobaan. Coba lagi nanti.');
         } else if (err.code === 'auth/network-request-failed') {
-            setError('Koneksi internet bermasalah.');
+            setError('Koneksi internet bermasalah atau domain tidak diizinkan. Silakan periksa konfigurasi Firebase.');
+            console.error("Network Error Details:", {
+                apiKey: (firebaseConfig as any).apiKey,
+                authDomain: (firebaseConfig as any).authDomain,
+                projectId: (firebaseConfig as any).projectId
+            });
         } else {
             setError('Gagal masuk: ' + (err.message || 'Kesalahan sistem'));
         }
